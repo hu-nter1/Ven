@@ -147,6 +147,7 @@ export function VenSpeech() {
   useSpeechRecognitionEvent('start', () => {
     restarting.current = false;
     setRecognizing(true);
+    console.log('VEN microphone activated');
     setMessage('VEN is listening...');
   });
 
@@ -187,6 +188,7 @@ export function VenSpeech() {
     try {
       processing.current = false;
       keepListening.current = true;
+
       setListeningEnabled(true);
       setMessage('Checking speech recognition...');
 
@@ -270,6 +272,7 @@ export function VenSpeech() {
         style={styles.chatArea}
         contentContainerStyle={styles.chatContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         onContentSizeChange={() =>
           scrollView.current?.scrollToEnd({ animated: true })
         }
@@ -330,12 +333,12 @@ export function VenSpeech() {
         ))}
       </ScrollView>
 
-      {/* Status */}
+      {/* Listening status */}
       <Text style={styles.status}>
         {message}
       </Text>
 
-      {/* Round microphone control */}
+      {/* Round microphone button */}
       <View style={styles.controls}>
         <Pressable
           accessibilityRole="button"
@@ -373,9 +376,11 @@ export function VenSpeech() {
 
 const styles = StyleSheet.create({
   container: {
-    width: '100%',
     flex: 1,
+    minHeight: 0,
+    width: '100%',
     paddingHorizontal: 12,
+    paddingTop: 10,
     paddingBottom: 10,
     backgroundColor: 'transparent',
   },
@@ -384,8 +389,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
-    backgroundColor: 'rgba(11, 25, 38, 0.65)',
-    borderRadius: 12,
+    backgroundColor: 'rgba(11, 25, 38, 0.85)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
     marginBottom: 10,
   },
 
@@ -396,6 +403,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#003B42',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#00FFFF',
   },
 
   avatarText: {
@@ -429,13 +438,18 @@ const styles = StyleSheet.create({
 
   chatArea: {
     flex: 1,
-    backgroundColor: 'rgba(11, 20, 26, 0.65)',
-    borderRadius: 12,
+    minHeight: 0,
+    width: '100%',
+    backgroundColor: 'rgba(8, 20, 32, 0.82)',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
   },
 
   chatContent: {
-    padding: 12,
-    paddingBottom: 20,
+    flexGrow: 1,
+    padding: 14,
+    paddingBottom: 24,
   },
 
   welcome: {
@@ -475,7 +489,7 @@ const styles = StyleSheet.create({
     maxWidth: '85%',
     paddingHorizontal: 13,
     paddingVertical: 10,
-    borderRadius: 12,
+    borderRadius: 14,
   },
 
   userBubble: {
@@ -484,7 +498,7 @@ const styles = StyleSheet.create({
   },
 
   venBubble: {
-    backgroundColor: '#202C33',
+    backgroundColor: 'rgba(32, 44, 51, 0.95)',
     borderTopLeftRadius: 3,
   },
 
@@ -495,11 +509,11 @@ const styles = StyleSheet.create({
   },
 
   userSender: {
-    color: '#8DE0B4',
+    color: '#defabc',
   },
 
   venSender: {
-    color: '#00FFFF',
+    color: '#bcafed',
   },
 
   messageText: {
@@ -516,7 +530,7 @@ const styles = StyleSheet.create({
   },
 
   status: {
-    marginVertical: 10,
+    marginVertical: 8,
     fontSize: 13,
     color: '#FFFFFF',
     textAlign: 'center',
@@ -525,22 +539,22 @@ const styles = StyleSheet.create({
   controls: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
+    paddingVertical: 8,
   },
 
   micButton: {
     width: 76,
     height: 76,
     borderRadius: 38,
-    backgroundColor: '#073B50',
+    backgroundColor: '#073B4C',
     borderWidth: 2,
-    borderColor: '#00FFFF',
+    borderColor: '#00D9FF',
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 12,
-    shadowColor: '#00FFFF',
+    elevation: 10,
+    shadowColor: '#00D9FF',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
+    shadowOpacity: 0.45,
     shadowRadius: 12,
   },
 
@@ -552,7 +566,7 @@ const styles = StyleSheet.create({
 
   micButtonPressed: {
     transform: [{ scale: 0.92 }],
-    opacity: 0.8,
+    opacity: 0.85,
   },
 
   micIcon: {

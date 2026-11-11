@@ -21,6 +21,7 @@ export function VenSkyBackground() {
         nativeControls={false}
         allowsFullscreen={false}
         allowsPictureInPicture={false}
+        surfaceType="textureView"
       />
     </View>
   );

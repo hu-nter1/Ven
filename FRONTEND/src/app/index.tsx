@@ -1,6 +1,7 @@
 
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
+import { VenSpeech } from '@/components/ven-speech';
 import { VenAvatar } from '@/components/ven-avatar';
 import { VenSkyBackground } from '@/components/ven-sky-background';
 
@@ -9,7 +10,9 @@ export default function HomeScreen() {
     <View style={styles.container}>
 
       {/* Moving sky */}
-      <VenSkyBackground />
+      <View style={styles.skyLayer} pointerEvents="none">
+        <VenSkyBackground />
+      </View>
 
       {/* VEN portrait behind the chat */}
       <View
@@ -19,19 +22,10 @@ export default function HomeScreen() {
         <VenAvatar />
       </View>
 
-      {/* Chat and microphone controls */}
+      {/* Full-screen chat and microphone controls */}
       <View style={styles.chatLayer}>
-  <View style={{
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  }}>
-    <Text style={{ color: 'white', fontSize: 24 }}>
-      VEN CHAT IS HERE
-    </Text>
-  </View>
-</View>
+        <VenSpeech />
+      </View>
 
     </View>
   );
@@ -40,25 +34,36 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    position: 'relative',
     backgroundColor: '#87CEEB',
     overflow: 'hidden',
   },
 
+  skyLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 0,
+    elevation: 0,
+  },
+
   portrait: {
     position: 'absolute',
-    width: '90%',
+    width: '100%',
     height: '75%',
-    right: -10,
     top: '12%',
-    opacity: 0.18,
+    left: 0,
+    opacity: 0.1,
     zIndex: 1,
     elevation: 1,
   },
 
-chatLayer: {
-  ...StyleSheet.absoluteFillObject,
-  zIndex: 100,
-  elevation: 100,
-  backgroundColor: 'rgb(255, 0, 0)',
-},
+  chatLayer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 3,
+    elevation: 3,
+    opacity: .5,
+  },
 });
