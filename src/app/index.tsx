@@ -1,52 +1,64 @@
 
-import { StyleSheet, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { VenAvatar } from '@/components/ven-avatar';
-import { VenSpeech } from '@/components/ven-speech';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { VenSkyBackground } from '@/components/ven-sky-background';
 
 export default function HomeScreen() {
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ScrollView
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-        >
-          <ThemedText type="title">
-            VEN
-          </ThemedText>
+    <View style={styles.container}>
 
-          <VenAvatar />
+      {/* Moving sky */}
+      <VenSkyBackground />
 
-          <VenSpeech />
-        </ScrollView>
-      </SafeAreaView>
-    </ThemedView>
+      {/* VEN portrait behind the chat */}
+      <View
+        pointerEvents="none"
+        style={styles.portrait}
+      >
+        <VenAvatar />
+      </View>
+
+      {/* Chat and microphone controls */}
+      <View style={styles.chatLayer}>
+  <View style={{
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  }}>
+    <Text style={{ color: 'white', fontSize: 24 }}>
+      VEN CHAT IS HERE
+    </Text>
+  </View>
+</View>
+
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#87CEEB',
+    overflow: 'hidden',
   },
 
-  safeArea: {
-    flex: 1,
-    width: '100%',
-    maxWidth: MaxContentWidth,
-    alignSelf: 'center',
+  portrait: {
+    position: 'absolute',
+    width: '90%',
+    height: '75%',
+    right: -10,
+    top: '12%',
+    opacity: 0.18,
+    zIndex: 1,
+    elevation: 1,
   },
 
-  content: {
-    flexGrow: 1,
-    alignItems: 'center',
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.four,
-    paddingBottom: BottomTabInset + Spacing.four,
-    gap: Spacing.four,
-  },
+chatLayer: {
+  ...StyleSheet.absoluteFillObject,
+  zIndex: 100,
+  elevation: 100,
+  backgroundColor: 'rgb(255, 0, 0)',
+},
 });

@@ -13,8 +13,7 @@ export function VenAvatar() {
 
 const styles = StyleSheet.create({
   avatar: {
-    width: 280,
-    height: 280,
-    resizeMode: 'contain',
+    width: '100%',
+    height: '100%',
   },
 });
