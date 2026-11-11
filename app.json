@@ -1,0 +1,61 @@
+{
+  "expo": {
+    "name": "Ven",
+    "slug": "ven",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/ven.png",
+    "scheme": "ven",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "icon": "./assets/ven.png",
+      "infoPlist": {
+        "NSSpeechRecognitionUsageDescription": "Allow VEN to recognize your speech.",
+        "NSMicrophoneUsageDescription": "Allow VEN to use your microphone."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/ven.png",
+        "backgroundImage": "./assets/ven.png",
+        "monochromeImage": "./assets/ven.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.anonymous.FRONTEND"
+    },
+    "web": {
+      "output": "server",
+      "favicon": "./assets/ven.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#208AEF",
+          "image": "./assets/ven.png",
+          "imageWidth": 76
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow VEN to use your microphone.",
+          "speechRecognitionPermission": "Allow VEN to recognize your speech.",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox"
+          ]
+        }
+      ],
+      "expo-video"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}
