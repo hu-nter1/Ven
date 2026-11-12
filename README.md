@@ -1,56 +1,79 @@
-# Welcome to your Expo app 👋
+# VEN
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+VEN is a voice-first personal assistant prototype. Its Expo app captures speech, sends the recognized text to a Python API, displays the response, and reads it aloud. The backend currently answers a small set of conversational intents and looks up word information in a local vocabulary.
 
-## Get started
+## What’s in the repository
 
-1. Install dependencies
+- `FRONTEND/` — Expo, React Native, and TypeScript app for Android, iOS, and web.
+- `BACKEND/` — FastAPI service, conversation logic, and vocabulary data.
+- `DEVELOPER_GUIDE.md` — setup details, architecture, development workflow, and troubleshooting.
 
-   ```bash
-   npm install
-   ```
+## Features
 
-2. Start the app
+- Voice input with a start/stop listening control and microphone permission handling.
+- Spoken replies and a scrolling conversation view.
+- Basic greetings, thanks, farewells, identity, and help responses.
+- Vocabulary lookups for meanings, examples, synonyms, antonyms, and related words.
+- Animated visual background and VEN avatar.
 
-   ```bash
-   npx expo start
-   ```
+The Explore tab is currently template content. The app does not save conversations between launches.
 
-In the output, you'll find options to open the app in a
+## Run VEN locally
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+The client and API run as separate processes. Start the API first, then configure the client to use an address reachable from the device running it.
 
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+### 1. Start the backend
 
-## Get a fresh project
-
-When you're ready, run:
+From the repository root:
 
 ```bash
-npm run reset-project
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install fastapi "uvicorn[standard]"
+cd BACKEND
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-This command will move the starter code to the **example** directory and create a blank **src/app** directory where you can start developing.
+The health endpoint is `http://127.0.0.1:8000/`. Interactive API documentation is at `http://127.0.0.1:8000/docs`.
 
-### Other setup steps
+### 2. Configure and start the app
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+Set `API_URL` in [`FRONTEND/src/components/ven-speech.tsx`](FRONTEND/src/components/ven-speech.tsx) to the backend base URL reachable from your target:
 
-## Learn more
+- iOS simulator: `http://127.0.0.1:8000`
+- Android emulator: `http://10.0.2.2:8000`
+- Physical device: `http://<computer-LAN-IP>:8000` (both devices must be on the same network)
 
-To learn more about developing your project with Expo, look at the following resources:
+Then run:
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```bash
+cd FRONTEND
+npm ci
+npx expo start
+```
 
-## Join the community
+Use the Expo CLI to open the app on your target platform. The speech-recognition package uses native functionality; microphone-based conversations may require a development build rather than Expo Go. See the [developer guide](DEVELOPER_GUIDE.md#frontend) for platform notes.
 
-Join our community of developers creating universal apps.
+## API at a glance
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+`POST /chat` accepts a JSON body and returns a reply:
+
+```json
+{
+  "message": "What does curious mean?"
+}
+```
+
+```json
+{
+  "reply": "Curious is an adjective. ..."
+}
+```
+
+## Contributing
+
+For repository layout, local development, vocabulary maintenance, and checks, see [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md).
+
+## License
+
+See [LICENSE](LICENSE).
