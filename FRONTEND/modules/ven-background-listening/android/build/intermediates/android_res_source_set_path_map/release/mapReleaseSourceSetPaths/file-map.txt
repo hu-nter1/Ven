@@ -1,0 +1,9 @@
+expo.modules.venbackgroundlistening.ven-background-listening-pngs-0 /home/king/Ven/FRONTEND/modules/ven-background-listening/android/build/generated/res/pngs/release
+expo.modules.venbackgroundlistening.ven-background-listening-updated_navigation_xml-1 /home/king/Ven/FRONTEND/modules/ven-background-listening/android/build/generated/updated_navigation_xml/release
+expo.modules.venbackgroundlistening.ven-background-listening-mergeReleaseResources-2 /home/king/Ven/FRONTEND/modules/ven-background-listening/android/build/intermediates/incremental/release/mergeReleaseResources/merged.dir
+expo.modules.venbackgroundlistening.ven-background-listening-mergeReleaseResources-3 /home/king/Ven/FRONTEND/modules/ven-background-listening/android/build/intermediates/incremental/release/mergeReleaseResources/stripped.dir
+expo.modules.venbackgroundlistening.ven-background-listening-release-4 /home/king/Ven/FRONTEND/modules/ven-background-listening/android/build/intermediates/merged_res/release/mergeReleaseResources
+expo.modules.venbackgroundlistening.ven-background-listening-release-5 /home/king/Ven/FRONTEND/modules/ven-background-listening/android/build/intermediates/packaged_res/release/packageReleaseResources
+expo.modules.venbackgroundlistening.ven-background-listening-main-6 /home/king/Ven/FRONTEND/modules/ven-background-listening/android/src/main/res
+expo.modules.venbackgroundlistening.ven-background-listening-release-7 /home/king/Ven/FRONTEND/modules/ven-background-listening/android/src/release/res
+gradleHome-0 /data/gradle

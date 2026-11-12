@@ -40,7 +40,7 @@ const styles = StyleSheet.create({
   },
 
   skyLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 0,
     elevation: 0,
   },
@@ -64,6 +64,5 @@ const styles = StyleSheet.create({
     bottom: 0,
     zIndex: 3,
     elevation: 3,
-    opacity: .5,
   },
 });

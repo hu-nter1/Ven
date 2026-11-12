@@ -1,0 +1,72 @@
+[
+    {
+        "subject": "john",
+        "action": "love",
+        "object": "mary",
+        "negation": false,
+        "original_sentence": "John loves Mary."
+    },
+    {
+        "subject": "the teacher",
+        "action": "like",
+        "object": "mathematics",
+        "negation": false,
+        "original_sentence": "The teacher likes mathematics."
+    },
+    {
+        "subject": "john",
+        "action": "like",
+        "object": "football",
+        "negation": false,
+        "original_sentence": "He likes football."
+    },
+    {
+        "subject": "mary",
+        "action": "study",
+        "object": null,
+        "negation": false,
+        "original_sentence": "Mary studies mathematics."
+    },
+    {
+        "subject": "mary",
+        "action": "enjoy",
+        "object": "reading",
+        "negation": false,
+        "original_sentence": "She enjoys reading."
+    },
+    {
+        "subject": "mary",
+        "action": "study",
+        "object": "mathematics",
+        "negation": false,
+        "original_sentence": "Mary studies mathematics."
+    },
+    {
+        "subject": "who",
+        "action": "be",
+        "object": "an engineer",
+        "negation": false,
+        "original_sentence": "who is an engineer"
+    },
+    {
+        "subject": "you",
+        "action": "listen",
+        "object": null,
+        "negation": false,
+        "original_sentence": "are you there are you listening"
+    },
+    {
+        "subject": "you",
+        "action": "do",
+        "object": "what",
+        "negation": false,
+        "original_sentence": "okay so what can you do"
+    },
+    {
+        "subject": "you",
+        "action": "be",
+        "object": null,
+        "negation": false,
+        "original_sentence": "are you intelligent"
+    }
+]

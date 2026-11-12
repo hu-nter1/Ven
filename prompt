@@ -1,0 +1,567 @@
+# PROJECT VEN — COMPLETE VISION, REQUIREMENTS AND DEVELOPMENT BRIEF
+
+## 1. Project identity
+
+I am developing an AI assistant called **VEN** using Python for the backend and React Native (Expo) for the mobile application.
+
+VEN is intended to become an intelligent, conversational system that can process language, construct meaning, learn information, remember experiences, reason from knowledge, and communicate naturally with users.
+
+I do not want to build an application that simply matches questions against predefined answers. I want to develop a system that can derive meaning from language and use that meaning to make decisions and generate appropriate responses.
+
+The central goal is:
+
+**I want VEN to develop her own ability to interpret language, understand relationships between concepts, learn from information, connect ideas, identify contradictions, and derive conclusions without requiring me to program every possible question and answer.**
+
+VEN should use general mechanisms for learning and reasoning rather than relying on thousands of manually written responses.
+
+This is a software-engineering project. Do not assume VEN is already conscious or possesses human understanding. The goal is to develop increasingly capable computational language understanding, knowledge representation, learning, and reasoning.
+
+## 2. What I want VEN to become
+
+I want VEN to progressively acquire the following capabilities.
+
+### A. Language understanding
+
+VEN should be able to:
+- Recognize words and their grammatical categories.
+- Understand the roles words play in sentences.
+- Identify subjects, verbs, objects, adjectives, adverbs, pronouns, and other grammatical elements.
+- Understand how words depend on and relate to one another.
+- Recognize how sentence structure changes meaning.
+- Interpret statements, questions, commands, negations, and conditional sentences.
+- Understand different forms of the same word, such as swim, swims, swimming, and swam.
+- Recognize that one word can have several meanings.
+- Select the most appropriate meaning based on grammar and context.
+- Understand how several words combine to express one complete idea.
+
+For example:
+
+"The child swam across the river."
+
+VEN should derive:
+- Child: the subject.
+- Swam: the action.
+- Across: the spatial relationship.
+- River: the destination or location associated with the action.
+
+She should not merely return separate dictionary definitions of the words.
+
+### B. Constructing meaning
+
+VEN should convert sentences into structured representations of meaning.
+
+Examples:
+
+"John loves Mary."
+
+Subject: John  
+Relationship: loves  
+Object: Mary
+
+"Birds are animals."
+
+Subject: Birds  
+Relationship: is-a  
+Category: Animals
+
+"John is intelligent."
+
+Subject: John  
+Relationship: has-property  
+Property: Intelligent
+
+"John does not love Mary."
+
+Subject: John  
+Relationship: loves  
+Object: Mary  
+Polarity: Negative
+
+"I can swim."
+
+Subject: I  
+Action: swim  
+Modality: Ability
+
+These representations should be reusable by other parts of VEN.
+
+### C. Independent learning
+
+This is one of the most important requirements.
+
+I do not want to teach VEN every possible question and answer.
+
+I want her to learn information and use general mechanisms to derive additional information.
+
+For example, teach VEN:
+
+1. An apple is a fruit.
+2. A fruit is food.
+
+VEN should derive:
+
+3. An apple is food.
+
+I should not have to provide the third statement.
+
+Another example:
+
+1. Birds are animals.
+2. Animals are living things.
+
+VEN should derive:
+
+3. Birds are living things.
+
+VEN should distinguish between:
+- Information explicitly provided to her.
+- Information derived through reasoning.
+- Information that is uncertain.
+- Information she does not know.
+
+She must not treat every conclusion as a confirmed fact.
+
+### D. Knowledge representation
+
+VEN should develop an organized knowledge network.
+
+Concepts should be connected through meaningful relationships, including:
+
+- Is-a.
+- Has-a.
+- Has-property.
+- Part-of.
+- Causes.
+- Requires.
+- Uses.
+- Located-in.
+- Performs.
+- Related-to.
+
+For example:
+
+Apple → Is-a → Fruit  
+Fruit → Is-a → Food  
+Food → Used-for → Nutrition
+
+The system should support adding concepts and relationships dynamically rather than requiring manually programmed entries for every concept.
+
+### E. Memory
+
+VEN should have persistent memory.
+
+She should:
+- Remember information users teach her.
+- Store concepts and relationships.
+- Remember previous statements.
+- Resolve references such as he, she, it, they, and this using conversational context.
+- Retrieve relevant information when answering questions.
+- Update knowledge when new information is provided.
+- Detect contradictions between stored information and new statements.
+- Preserve the source of information.
+- Distinguish learned facts from inferred conclusions.
+- Avoid unnecessarily duplicating facts.
+
+Memory should survive application restarts.
+
+### F. Reasoning
+
+VEN should progressively learn to:
+- Compare information.
+- Identify relationships between concepts.
+- Infer new information.
+- Recognize contradictions.
+- Identify missing information.
+- Distinguish possibility from certainty.
+- Use context to make decisions.
+- Explain how she reached a conclusion.
+
+For example:
+
+User: Birds are animals.  
+User: Animals are living things.  
+User: Are birds living things?
+
+VEN should answer yes and explain that this conclusion follows from the two relationships already stored.
+
+This should be generated through a general reasoning mechanism, not a hardcoded response to that particular question.
+
+### G. Natural conversation
+
+VEN should be able to:
+- Understand questions expressed in different ways.
+- Answer using her stored knowledge.
+- Ask for clarification when necessary.
+- Admit when she does not know something.
+- Maintain conversational context.
+- Avoid repeating the same generic response.
+- Generate meaningful sentences from her knowledge.
+- Explain her reasoning in understandable language.
+
+Examples of questions she should eventually handle:
+
+- What can you do?
+- Are you intelligent?
+- What is the meaning of love?
+- Why are birds animals?
+- What do you know about rivers?
+- What is the difference between an animal and a plant?
+- Can you explain your conclusion?
+- What happens if new information contradicts something you learned?
+
+These are examples of capabilities to develop, not a list of answers to hardcode.
+
+## 3. Current technology and environment
+
+Backend:
+- Python.
+- FastAPI.
+- spaCy.
+- NLTK.
+- WordNet.
+- JSON-based storage currently.
+- Uvicorn.
+
+Frontend:
+- React Native.
+- Expo.
+- TypeScript.
+- Expo Speech for text-to-speech.
+- Speech recognition for voice input.
+
+Development environment:
+- Windows-style terminal commands.
+- Project directory: `C:\home\king\Ven\BACKEND`
+- Python version: 3.14.
+- spaCy version: 3.8.18.
+- English spaCy model: `en_core_web_sm` 3.8.0.
+- NLTK version: 3.10.4.
+- Hardware: Intel Core i5-5300U, Intel HD 5500 graphics, 8 GB RAM.
+
+The system must remain practical for this hardware. Avoid recommending unnecessarily large models or hardware-intensive architectures without explaining why they are needed.
+
+## 4. Current backend file structure
+
+The project currently contains:
+
+```text
+BACKEND/
+│
+├── brain.py
+├── build_vocabulary.py
+├── context_engine.py
+├── knowledge_engine.py
+├── meaning_engine.py
+├── reasoning_engine.py
+├── reference_engine.py
+├── sentence_interpreter.py
+├── semantic_engine.py
+├── main.py
+├── vocabulary.json
+├── ven_memory.json
+│
+└── ven_backup_before_architecture/
+```
+
+There are also Python cache files and a memory backup file.
+
+### What the files currently do
+
+**brain.py**
+
+The central response engine. It currently uses a vocabulary database and several manually defined patterns for greetings, identity, definitions, synonyms, antonyms, examples, and other questions.
+
+It needs to evolve beyond pattern matching and coordinate the other engines.
+
+**build_vocabulary.py**
+
+Builds and enriches VEN's vocabulary using WordNet.
+
+**context_engine.py**
+
+Handles conversational context and stores facts in persistent JSON memory.
+
+**knowledge_engine.py**
+
+Retrieves stored facts to answer certain questions. Its current question handling is limited to a few predefined sentence patterns.
+
+**meaning_engine.py**
+
+Uses spaCy and WordNet to examine individual words, their grammatical categories, and possible dictionary meanings. It currently attempts contextual word-sense selection using lexical overlap and Wu-Palmer similarity.
+
+**reasoning_engine.py**
+
+An early reasoning component that can compare stored relationships and identify some contradictions. It currently uses an older data structure and needs integration with the newer sentence interpreter.
+
+**reference_engine.py**
+
+An early pronoun/reference resolution component. It needs a better context-based approach.
+
+**sentence_interpreter.py**
+
+Uses spaCy to identify grammatical structure, including:
+- Word IDs.
+- Words and lemmas.
+- Parts of speech.
+- Grammatical dependencies.
+- Head words.
+- Connected words.
+- Subjects.
+- Objects.
+- Clauses.
+- Negation.
+- Properties.
+- Questions.
+
+This file has already been updated and tested with several sentences.
+
+**semantic_engine.py**
+
+A newly introduced experimental component intended to convert sentence structures into meaningful propositions. It has just been created and still needs testing and improvement.
+
+**main.py**
+
+The FastAPI entry point. It connects the brain, context engine, and knowledge engine and exposes the `/chat` endpoint.
+
+**vocabulary.json**
+
+Contains approximately 42,545 vocabulary entries and occupies approximately 16 MB.
+
+**ven_memory.json**
+
+Contains previously learned information in JSON format.
+
+## 5. Current development status
+
+The sentence interpreter has successfully processed examples such as:
+
+- The intelligent young boy quickly eats a red apple in the kitchen.
+- Birds are animals.
+- I can swim.
+- John does not love Mary.
+- The boy reads a book and writes a letter.
+- Are you intelligent?
+
+It identifies useful grammatical information, including subjects, actions, objects, modifiers, auxiliaries, and negation.
+
+The meaning engine has also been tested with:
+
+- The child swam across the river.
+- I opened a can.
+- What do you know?
+- I do my work.
+- Are you intelligent?
+- Birds are animals.
+
+It can retrieve possible WordNet meanings, but its contextual sense selection is still weak. Some scores are zero or too low to select a reliable meaning.
+
+For example, it can identify that "swam" is a verb but cannot yet confidently determine its meaning from the surrounding sentence.
+
+This is a known limitation that must be improved.
+
+The current system is therefore an early prototype, not a finished intelligent assistant.
+
+## 6. Important architectural requirements
+
+I want the different engines to work together as one coherent system.
+
+A possible processing pipeline is:
+
+```text
+USER INPUT
+    |
+    v
+LANGUAGE PROCESSING
+    |
+    v
+SENTENCE INTERPRETATION
+    |
+    v
+WORD MEANING AND CONTEXT
+    |
+    v
+SEMANTIC CONSTRUCTION
+    |
+    v
+REFERENCE RESOLUTION
+    |
+    v
+KNOWLEDGE NETWORK
+    |
+    v
+REASONING ENGINE
+    |
+    v
+MEMORY
+    |
+    v
+RESPONSE GENERATION
+    |
+    v
+USER
+```
+
+The architecture should be improved if a better design is identified.
+
+Important requirements:
+
+1. Do not make every engine independently load and modify the same memory file without a consistent design.
+2. Establish one authoritative knowledge and memory system.
+3. Use a consistent representation for propositions throughout the application.
+4. Preserve information about where facts originated.
+5. Record whether information is explicit or inferred.
+6. Avoid saving questions as factual statements.
+7. Do not assume that every sentence has the same subject-verb-object structure.
+8. Handle compound sentences, subordinate clauses, pronouns, negation, modality, and descriptive phrases.
+9. Keep the architecture modular so that new capabilities can be added without rewriting everything.
+10. Ensure the FastAPI backend and React Native frontend remain compatible.
+
+## 7. Vocabulary requirements
+
+Do not rebuild or discard the existing vocabulary database unnecessarily.
+
+The current vocabulary contains useful information, but its entries frequently represent only the first WordNet meaning.
+
+For example:
+- "Can" may be a noun meaning a container, but it can also express ability as a modal verb.
+- "Swim" can be a noun or a verb.
+- "Work" can be a noun or a verb.
+- "Know" can be a verb with several senses.
+
+VEN must distinguish word meanings using:
+- Grammatical category.
+- Sentence position.
+- Grammatical relationships.
+- Surrounding words.
+- Context.
+- Previously learned concepts.
+
+Function words such as articles, pronouns, prepositions, auxiliaries, and modal verbs must be handled through grammar and semantic rules rather than relying exclusively on WordNet.
+
+## 8. Learning should not mean hardcoding answers
+
+I want to emphasize this requirement.
+
+It is acceptable to implement general language rules, inference algorithms, grammatical mechanisms, and reusable reasoning procedures.
+
+However, do not solve the project by adding individual responses for every possible question.
+
+For example, do not write:
+
+```python
+if question == "Are birds animals?":
+    return "Yes."
+
+if question == "Are birds living things?":
+    return "Yes."
+```
+
+Instead, build a knowledge representation and inference mechanism that can answer both questions based on stored relationships.
+
+The difference is important.
+
+I want VEN to derive answers using the knowledge available to her.
+
+## 9. How I want you to assist me
+
+Act as a software architect, Python engineer, AI systems developer, and patient technical teacher.
+
+I want you to help me build this project progressively.
+
+Please follow these rules:
+
+1. Understand the existing architecture before proposing major changes.
+2. Do not discard working code unnecessarily.
+3. Do not invent features that already exist.
+4. Do not skip files or important implementation details.
+5. When changing a file, provide the complete corrected file, not disconnected snippets, unless I specifically request a small modification.
+6. Give me the exact terminal command to run after each important change.
+7. Explain what the new code does and why it is necessary.
+8. Test the logic with meaningful examples.
+9. Identify compatibility problems between existing modules before integrating them.
+10. Preserve existing user data and memory.
+11. Do not overwhelm me with too many unrelated changes at once.
+12. Prioritize the capabilities that move VEN closer to the central goal.
+13. Do not claim a capability works until it has been tested.
+14. Be honest when an approach is unreliable or has limitations.
+15. Prefer practical solutions that can run on my current computer.
+
+I am studying software engineering, so I also want to understand the architecture and the purpose of the code rather than merely copy and paste.
+
+## 10. Development priorities
+
+Work toward these milestones in order:
+
+**Milestone 1: Reliable language interpretation**
+
+Make VEN accurately identify words, grammatical roles, sentence structures, relationships, clauses, negation, and modality.
+
+**Milestone 2: Semantic construction**
+
+Convert complete sentences into structured propositions that represent their meaning.
+
+**Milestone 3: Knowledge network**
+
+Store concepts and relationships in a structured, persistent form.
+
+**Milestone 4: Automatic inference**
+
+Allow VEN to derive new relationships from existing knowledge, including transitive category relationships.
+
+**Milestone 5: Context and memory**
+
+Improve pronoun resolution, conversational context, persistent memory, and contradiction handling.
+
+**Milestone 6: Question understanding**
+
+Allow VEN to interpret different forms of questions and retrieve answers from her knowledge rather than depending on exact question patterns.
+
+**Milestone 7: Response generation**
+
+Allow VEN to construct natural responses based on what she knows, what she has inferred, and what remains unknown.
+
+**Milestone 8: Integration**
+
+Connect all engines into the FastAPI backend and maintain compatibility with the React Native application.
+
+**Milestone 9: Continuous learning**
+
+Develop mechanisms for VEN to acquire new concepts and relationships from conversations, explanations, and other permitted information sources.
+
+## 11. What I expect from the project
+
+Ultimately, I want VEN to become a locally runnable AI assistant with:
+
+- A vocabulary system.
+- Language and grammar processing.
+- Contextual word-meaning selection.
+- Sentence-level semantic understanding.
+- A structured knowledge network.
+- Persistent memory.
+- Reference resolution.
+- Logical reasoning.
+- Automatic inference.
+- Contradiction detection.
+- Question interpretation.
+- Natural response generation.
+- Voice input and spoken responses through the mobile application.
+
+I understand this is a substantial project and that these capabilities will require many stages of development.
+
+Do not promise that a few Python files will create human-level intelligence. Help me build a technically sound system whose capabilities improve through measurable stages.
+
+## 12. Your first task
+
+Start by reviewing the architecture and identifying:
+
+1. What is already working.
+2. Which components are incompatible.
+3. What is missing.
+4. Which existing files should be preserved.
+5. What the next most important implementation should be.
+
+Do not immediately rewrite the entire project.
+
+Help me continue from the current development state, with the goal of making VEN construct meaning, learn relationships, and reason from knowledge rather than simply return predefined answers.
+
+**The most important principle of this project is: I do not want to program every answer for VEN. I want to build the mechanisms that allow VEN to derive answers from what she learns.**

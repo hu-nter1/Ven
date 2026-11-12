@@ -11,12 +11,14 @@ Microphone
 Expo app (FRONTEND)
    ├── speech recognition → transcript
    ├── POST /chat ───────────────► FastAPI (BACKEND)
-   │                                  └── VENBrain + vocabulary.json
-   └── response text ◄──────────── reply
+   │                                  ├── VENBrain + vocabulary.json
+   │                                  ├── common_facts.json + local learning
+   │                                  └── Wikipedia fallback → local cache
+   └── response text ◄──── reply + optional source citation
           └── expo-speech reads reply aloud
 ```
 
-The frontend owns speech capture, conversation display, and text-to-speech. The backend is a synchronous, in-process rule-based responder; it does not call an external AI service or store chat history. Vocabulary entries are loaded into memory when the API starts.
+The frontend owns speech capture, conversation display, and text-to-speech. The backend first processes input with the vocabulary responder and local knowledge. It loads built-in offline facts from `common_facts.json` and stores explicit learned statements in `ven_memory.json`; questions are not saved as facts. If local knowledge cannot answer an information request, the backend searches Wikipedia and returns an excerpt with a source citation. The result cache is stored in `ven_web_cache.json`. The backend does not call a generative-AI service or store chat history.
 
 ## Requirements
 
@@ -34,7 +36,18 @@ npm ci
 npx expo start
 ```
 
-Run the app on Android, iOS, or web using the Expo CLI. The speech-recognition package depends on native functionality, so the voice workflow may not work in Expo Go; use a development build when the native module is unavailable. The project uses Continuous Native Generation, so configure native behavior through `app.json` and config plugins rather than hand-editing generated `ios/` or `android/` directories.
+Run the app on Android, iOS, or web using the Expo CLI. Speech recognition and VEN's Android background-listening service require a development build, not Expo Go. After changing native configuration or the local native module, regenerate/build the Android app:
+
+```bash
+npx expo run:android
+npx expo start --dev-client
+```
+
+The project uses Continuous Native Generation, so configure native behavior through `app.json`, config plugins, and local Expo modules rather than hand-editing generated `ios/` or `android/` directories.
+
+On Android, tapping **Start listening** starts a microphone foreground service and displays an ongoing notification. Android 13 and later require notification permission for the visible notification. Tapping **Stop listening** stops recognition and removes the notification. Android may still stop microphone work if the user force-stops the app, revokes permissions, or device-specific battery controls terminate it. iOS does not use this Android service and remains subject to iOS background speech-recognition restrictions.
+
+The Android foreground service keeps the user-requested listening task active; the operating system's speech-recognition provider still performs transcription and may impose its own limits or require network access. The service does not provide wake-word detection and cannot restart VEN after the user force-stops the app.
 
 The backend base URL is currently a source constant named `API_URL` in `src/components/ven-speech.tsx`. Update it for the target running the app:
 
@@ -68,6 +81,33 @@ npx tsc --noEmit
 
 There is no test script currently configured in `package.json`.
 
+### Android development and standalone APKs
+
+The Android debug build is a development-client app named **Ven Dev**. It has a `.dev` application ID suffix, so it can be installed alongside the standalone app. Start Metro with:
+
+```bash
+cd FRONTEND
+npx expo start --dev-client
+```
+
+In another terminal, build and install the development APK:
+
+```bash
+cd FRONTEND/android
+./gradlew assembleDebug
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+The standalone release embeds the JavaScript bundle and runs without Metro:
+
+```bash
+cd FRONTEND/android
+./gradlew assembleRelease
+adb install -r app/build/outputs/apk/release/app-release.apk
+```
+
+The local release build is signed with the checked-in debug signing configuration for sideloading. Create and configure a private release keystore before distributing the APK outside local development; never publish the debug key as a production signing key.
+
 ## Backend
 
 ### Install and run
@@ -77,7 +117,8 @@ From the repository root:
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install fastapi "uvicorn[standard]"
+python -m pip install fastapi "uvicorn[standard]" spacy
+python -m spacy download en_core_web_sm
 cd BACKEND
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
@@ -85,17 +126,25 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 The API is defined in `main.py`:
 
 - `GET /` — health/status response.
-- `POST /chat` — accepts `{"message": "..."}` and returns `{"reply": "..."}`.
+- `POST /chat` — accepts `{"message": "..."}` and returns `{"reply": "..."}`, optionally with `source_title` and `source_url` for Wikipedia-backed answers.
 
 For example:
 
 ```bash
 curl -X POST http://127.0.0.1:8000/chat \
   -H 'Content-Type: application/json' \
-  -d '{"message":"hello"}'
+  -d '{"message":"What is the capital of France?"}'
 ```
 
 FastAPI’s interactive documentation is available at `http://127.0.0.1:8000/docs`.
+
+The sentence interpreter uses the `en_core_web_sm` spaCy model. Its semantic propositions are the representation written for new facts; existing `ven_memory.json` records in the earlier `subject`/`action` format are preserved and remain readable by the basic question-answering code. WordNet-based word meaning and the experimental reasoning module are not yet part of the `/chat` pipeline.
+
+Run the backend regression tests from the repository root with:
+
+```bash
+python -m unittest discover -s BACKEND -p 'test_*.py'
+```
 
 ### Conversation logic
 
@@ -133,7 +182,13 @@ The builder enriches existing entries and attempts to grow the list to its confi
 
 ## API contract and current limitations
 
-The `/chat` endpoint takes a string `message` and returns a string `reply`. Request validation is handled by Pydantic. The backend currently has no database, authentication, rate limiting, or CORS middleware. In particular, browser-based frontend requests from a different origin need a CORS policy before the web app can use the API. Speech recognition availability and permissions vary by platform and device.
+The `/chat` endpoint takes a string `message` and returns a string `reply`, with optional `source_title` and `source_url` fields when Wikipedia is used. Request validation is handled by Pydantic. The backend currently has no database, authentication, rate limiting, or CORS middleware. In particular, browser-based frontend requests from a different origin need a CORS policy before the web app can use the API. Speech recognition availability and permissions vary by platform and device.
+
+### Local learning and reasoning
+
+VEN does not call a hosted generative-AI API and does not train a language model. Built-in facts in `common_facts.json` are available without network access and are not copied into user memory. Declarative statements the local sentence interpreter can represent are saved in `ven_memory.json`; direct and transitive `is_a` relationships can then answer simple questions such as “Are birds living things?” from “Birds are animals” and “Animals are living things.” This is a small, explainable knowledge-inference step, not general human-like understanding.
+
+When local knowledge cannot answer an information request, `web_knowledge.py` sends cleaned search terms to Wikipedia’s public search API and returns a page excerpt with a clickable source URL. Results are cached locally in `ven_web_cache.json` for seven days. Web fallback needs an internet connection; if the request fails, VEN reports that Wikipedia could not be reached. The cache and learned facts are local development data and should not be committed. Answers depend on what the parser can represent and may be limited for ambiguous or complex language. Web retrieval does not make the device's speech-recognition provider offline.
 
 ## Troubleshooting
 

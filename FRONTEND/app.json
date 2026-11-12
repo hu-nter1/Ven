@@ -51,6 +51,7 @@
           ]
         }
       ],
+      "./plugins/withVenBackgroundListening",
       "expo-video"
     ],
     "experiments": {

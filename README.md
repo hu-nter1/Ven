@@ -1,6 +1,6 @@
 # VEN
 
-VEN is a voice-first personal assistant prototype. Its Expo app captures speech, sends the recognized text to a Python API, displays the response, and reads it aloud. The backend currently answers a small set of conversational intents and looks up word information in a local vocabulary.
+VEN is a voice-first personal assistant prototype. Its Expo app captures speech, sends the recognized text to a Python API, displays the response, and reads it aloud. The backend handles basic conversation, answers common and locally learned facts, and can retrieve a Wikipedia excerpt with a source link when a local answer is unavailable.
 
 ## What’s in the repository
 
@@ -14,9 +14,11 @@ VEN is a voice-first personal assistant prototype. Its Expo app captures speech,
 - Spoken replies and a scrolling conversation view.
 - Basic greetings, thanks, farewells, identity, and help responses.
 - Vocabulary lookups for meanings, examples, synonyms, antonyms, and related words.
+- Offline answers from built-in common facts and local learning from explicit statements.
+- Wikipedia search fallback with a source link and a seven-day local result cache.
 - Animated visual background and VEN avatar.
 
-The Explore tab is currently template content. The app does not save conversations between launches.
+VEN does not use a hosted generative-AI API. Wikipedia lookup requires an internet connection; learned facts and cached results are stored locally by the backend. The Explore tab is currently template content, and the app does not save conversations between launches.
 
 ## Run VEN locally
 
@@ -29,7 +31,8 @@ From the repository root:
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install fastapi "uvicorn[standard]"
+python -m pip install fastapi "uvicorn[standard]" spacy
+python -m spacy download en_core_web_sm
 cd BACKEND
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
@@ -49,10 +52,11 @@ Then run:
 ```bash
 cd FRONTEND
 npm ci
-npx expo start
+npx expo run:android
+npx expo start --dev-client
 ```
 
-Use the Expo CLI to open the app on your target platform. The speech-recognition package uses native functionality; microphone-based conversations may require a development build rather than Expo Go. See the [developer guide](DEVELOPER_GUIDE.md#frontend) for platform notes.
+VEN's Android background-listening service and speech-recognition package require a development build, not Expo Go. See the [developer guide](DEVELOPER_GUIDE.md#frontend) for platform notes and iOS limitations.
 
 ## API at a glance
 
@@ -60,15 +64,19 @@ Use the Expo CLI to open the app on your target platform. The speech-recognition
 
 ```json
 {
-  "message": "What does curious mean?"
+  "message": "Tell me about Mars."
 }
 ```
 
 ```json
 {
-  "reply": "Curious is an adjective. ..."
+  "reply": "Here's what I found on Wikipedia: ...",
+  "source_title": "Mars",
+  "source_url": "https://en.wikipedia.org/wiki/Mars"
 }
 ```
+
+`source_title` and `source_url` contain the Wikipedia page citation for web-backed answers and are `null` for local replies.
 
 ## Contributing
 

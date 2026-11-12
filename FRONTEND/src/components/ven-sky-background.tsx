@@ -8,6 +8,7 @@ export function VenSkyBackground() {
     (player) => {
       player.loop = true;
       player.muted = true;
+      player.audioMixingMode = 'mixWithOthers';
       player.play();
     }
   );
@@ -19,7 +20,7 @@ export function VenSkyBackground() {
         style={styles.video}
         contentFit="cover"
         nativeControls={false}
-        allowsFullscreen={false}
+        fullscreenOptions={{ enable: false }}
         allowsPictureInPicture={false}
         surfaceType="textureView"
       />
@@ -29,7 +30,7 @@ export function VenSkyBackground() {
 
 const styles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     overflow: 'hidden',
     backgroundColor: '#87CEEB',
   },

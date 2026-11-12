@@ -41,6 +41,10 @@ yarn-error.*
 
 example
 
+# Local backend data
+/BACKEND/ven_memory.json
+/BACKEND/ven_web_cache.json
+
 # generated native folders
 /ios
 /android

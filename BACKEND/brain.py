@@ -26,7 +26,8 @@ class VENBrain:
             "greeting": [
                 "hello", "hi", "hey",
                 "good morning", "good afternoon",
-                "good evening"
+                "good evening", "how are you",
+                "how are you doing"
             ],
             "gratitude": [
                 "thank you", "thanks", "many thanks"
@@ -37,12 +38,47 @@ class VENBrain:
             ],
             "identity": [
                 "your name", "what is your name",
-                "who are you"
+                "who are you", "tell me about yourself"
             ],
             "help": [
                 "help", "help me", "can you help me"
             ]
         }
+
+        # Different ways people ask vocabulary questions.
+        self.word_patterns = [
+            ("example", r"example of (.+)"),
+            ("example", r"give me an example of (.+)"),
+            ("example", r"use (.+) in a sentence"),
+            ("example", r"show me an example of (.+)"),
+
+            ("synonyms", r"synonyms of (.+)"),
+            ("synonyms", r"synonyms for (.+)"),
+            ("synonyms", r"another word for (.+)"),
+            ("synonyms", r"words that mean the same as (.+)"),
+            ("synonyms", r"words similar to (.+)"),
+            ("synonyms", r"similar words to (.+)"),
+
+            ("antonyms", r"antonyms of (.+)"),
+            ("antonyms", r"antonyms for (.+)"),
+            ("antonyms", r"opposite of (.+)"),
+            ("antonyms", r"opposite word for (.+)"),
+            ("antonyms", r"what is the opposite of (.+)"),
+
+            ("related", r"related words of (.+)"),
+            ("related", r"words related to (.+)"),
+            ("related", r"words associated with (.+)"),
+
+            ("meaning", r"what does (.+) mean"),
+            ("meaning", r"what is the meaning of (.+)"),
+            ("meaning", r"meaning of (.+)"),
+            ("meaning", r"define (.+)"),
+            ("meaning", r"explain the meaning of (.+)"),
+            ("meaning", r"explain what (.+) means"),
+            ("meaning", r"can you explain what (.+) means"),
+            ("meaning", r"tell me what (.+) means"),
+            ("meaning", r"what is (.+)")
+        ]
 
     def normalize(self, message):
         message = message.lower().strip()
@@ -56,25 +92,19 @@ class VENBrain:
 
     def find_word_request(self, message):
 
-        patterns = [
-            ("example", r"example of (.+)"),
-            ("example", r"use (.+) in a sentence"),
-            ("synonyms", r"synonyms of (.+)"),
-            ("antonyms", r"antonyms of (.+)"),
-            ("related", r"related words of (.+)"),
-            ("related", r"words related to (.+)"),
-            ("meaning", r"what does (.+) mean"),
-            ("meaning", r"meaning of (.+)"),
-            ("meaning", r"define (.+)"),
-            ("meaning", r"what is the meaning of (.+)"),
-            ("meaning", r"what is (.+)")
-        ]
-
-        for request_type, pattern in patterns:
+        for request_type, pattern in self.word_patterns:
             match = re.fullmatch(pattern, message)
 
             if match:
                 word = match.group(1).strip()
+
+                # Remove common unnecessary words at the beginning.
+                word = re.sub(
+                    r"^(the|a|an)\s+",
+                    "",
+                    word
+                )
+
                 return word, request_type
 
         return None, None
@@ -95,7 +125,10 @@ class VENBrain:
             if example:
                 return f"Example of {word}: {example}"
 
-            return f"I know the meaning of {word}, but I don't have an example sentence yet."
+            return (
+                f"I know the meaning of {word}, "
+                "but I don't have an example sentence yet."
+            )
 
         if request_type == "synonyms":
             synonyms = data.get("synonyms", [])
@@ -136,19 +169,19 @@ class VENBrain:
         if not message:
             return "You haven't said anything yet."
 
-        # Understand common conversational intentions.
+        # Recognize conversational intentions.
         for intent, phrases in self.intents.items():
             for phrase in phrases:
                 if self.contains_phrase(message, phrase):
                     return self.respond(intent)
 
-        # Understand vocabulary questions.
+        # Recognize different vocabulary question formats.
         word, request_type = self.find_word_request(message)
 
         if word:
             return self.explain_word(word, request_type)
 
-        # Look up a word when the user enters it directly.
+        # Look up a word entered directly.
         if message in self.vocabulary:
             return self.explain_word(message, "meaning")
 

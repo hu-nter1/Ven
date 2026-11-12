@@ -1,3 +1,4 @@
+import { forwardRef, type ComponentRef } from 'react';
 import {
   Tabs,
   TabList,
@@ -33,9 +34,16 @@ export default function AppTabs() {
   );
 }
 
-export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
+export const TabButton = forwardRef<
+  ComponentRef<typeof Pressable>,
+  Omit<TabTriggerSlotProps, 'ref'>
+>(({ children, isFocused, ...props }, ref) => {
   return (
-    <Pressable {...props} style={({ pressed }) => pressed && styles.pressed}>
+    <Pressable
+      {...props}
+      ref={ref}
+      style={({ pressed }) => pressed && styles.pressed}
+    >
       <ThemedView
         type={isFocused ? 'backgroundSelected' : 'backgroundElement'}
         style={styles.tabButtonView}>
@@ -45,7 +53,7 @@ export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps
       </ThemedView>
     </Pressable>
   );
-}
+});
 
 export function CustomTabList(props: TabListProps) {
   const scheme = useColorScheme();

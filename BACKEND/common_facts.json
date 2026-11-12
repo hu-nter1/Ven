@@ -1,0 +1,155 @@
+[
+    {
+        "subject": "earth",
+        "relation": "is_a",
+        "object": "planet",
+        "negation": false,
+        "modality": null,
+        "source": "Earth is a planet.",
+        "origin": "builtin"
+    },
+    {
+        "subject": "mars",
+        "relation": "is_a",
+        "object": "planet",
+        "negation": false,
+        "modality": null,
+        "source": "Mars is a planet.",
+        "origin": "builtin"
+    },
+    {
+        "subject": "venus",
+        "relation": "is_a",
+        "object": "planet",
+        "negation": false,
+        "modality": null,
+        "source": "Venus is a planet.",
+        "origin": "builtin"
+    },
+    {
+        "subject": "jupiter",
+        "relation": "is_a",
+        "object": "planet",
+        "negation": false,
+        "modality": null,
+        "source": "Jupiter is a planet.",
+        "origin": "builtin"
+    },
+    {
+        "subject": "saturn",
+        "relation": "is_a",
+        "object": "planet",
+        "negation": false,
+        "modality": null,
+        "source": "Saturn is a planet.",
+        "origin": "builtin"
+    },
+    {
+        "subject": "mercury",
+        "relation": "is_a",
+        "object": "planet",
+        "negation": false,
+        "modality": null,
+        "source": "Mercury is a planet.",
+        "origin": "builtin"
+    },
+    {
+        "subject": "uranus",
+        "relation": "is_a",
+        "object": "planet",
+        "negation": false,
+        "modality": null,
+        "source": "Uranus is a planet.",
+        "origin": "builtin"
+    },
+    {
+        "subject": "neptune",
+        "relation": "is_a",
+        "object": "planet",
+        "negation": false,
+        "modality": null,
+        "source": "Neptune is a planet.",
+        "origin": "builtin"
+    },
+    {
+        "subject": "sun",
+        "relation": "is_a",
+        "object": "star",
+        "negation": false,
+        "modality": null,
+        "source": "The Sun is a star.",
+        "origin": "builtin"
+    },
+    {
+        "subject": "moon",
+        "relation": "is_a",
+        "object": "natural satellite",
+        "negation": false,
+        "modality": null,
+        "source": "The Moon is Earth's natural satellite.",
+        "origin": "builtin"
+    },
+    {
+        "subject": "earth",
+        "relation": "orbit",
+        "object": "sun",
+        "negation": false,
+        "modality": null,
+        "source": "Earth orbits the Sun.",
+        "origin": "builtin"
+    },
+    {
+        "subject": "moon",
+        "relation": "orbit",
+        "object": "earth",
+        "negation": false,
+        "modality": null,
+        "source": "The Moon orbits Earth.",
+        "origin": "builtin"
+    },
+    {
+        "subject": "human",
+        "relation": "need",
+        "object": "oxygen",
+        "negation": false,
+        "modality": null,
+        "source": "Humans need oxygen to live.",
+        "origin": "builtin"
+    },
+    {
+        "subject": "human",
+        "relation": "need",
+        "object": "water",
+        "negation": false,
+        "modality": null,
+        "source": "Humans need water to live.",
+        "origin": "builtin"
+    },
+    {
+        "subject": "plant",
+        "relation": "need",
+        "object": "sunlight",
+        "negation": false,
+        "modality": null,
+        "source": "Plants need sunlight to grow.",
+        "origin": "builtin"
+    },
+    {
+        "subject": "plant",
+        "relation": "produce",
+        "object": "oxygen",
+        "negation": false,
+        "modality": null,
+        "source": "Plants produce oxygen during photosynthesis.",
+        "origin": "builtin"
+    },
+    {
+        "subject": "water",
+        "relation": "is_a",
+        "object": "chemical compound",
+        "negation": false,
+        "modality": null,
+        "source": "Water is a chemical compound.",
+        "origin": "builtin"
+    }
+]
