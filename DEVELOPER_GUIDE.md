@@ -12,13 +12,14 @@ Expo app (FRONTEND)
    ├── speech recognition → transcript
    ├── POST /chat ───────────────► FastAPI (BACKEND)
    │                                  ├── VENBrain + vocabulary.json
+   │                                  ├── VENResponseEngine
    │                                  ├── common_facts.json + local learning
-   │                                  └── Wikipedia fallback → local cache
+   │                                  └── public web search → local cache
    └── response text ◄──── reply + optional source citation
           └── expo-speech reads reply aloud
 ```
 
-The frontend owns speech capture, conversation display, and text-to-speech. The backend first processes input with the vocabulary responder and local knowledge. It loads built-in offline facts from `common_facts.json` and stores explicit learned statements in `ven_memory.json`; questions are not saved as facts. If local knowledge cannot answer an information request, the backend searches Wikipedia and returns an excerpt with a source citation. The result cache is stored in `ven_web_cache.json`. The backend does not call a generative-AI service or store chat history.
+The frontend owns speech capture, conversation display, and text-to-speech. `VENBrain` handles vocabulary questions and conversational intents; `VENResponseEngine` composes varied rule-based replies from interpreted statements and varies wording for repeated intents. Local facts come from `common_facts.json` and explicit learned statements in `ven_memory.json`; questions are not saved as facts. If local knowledge cannot answer an information request, the backend tries Bing's public RSS search, a DuckDuckGo instant answer, and then Wikipedia, returning the selected excerpt and citation. Results are cached in `ven_web_cache.json`. No hosted generative-AI model or search API key is used, and chat history is not stored.
 
 ## Requirements
 
@@ -126,7 +127,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 The API is defined in `main.py`:
 
 - `GET /` — health/status response.
-- `POST /chat` — accepts `{"message": "..."}` and returns `{"reply": "..."}`, optionally with `source_title` and `source_url` for Wikipedia-backed answers.
+- `POST /chat` — accepts `{"message": "..."}` and returns `{"reply": "..."}`, optionally with `source_title` and `source_url` for web-backed answers.
 
 For example:
 
@@ -148,9 +149,9 @@ python -m unittest discover -s BACKEND -p 'test_*.py'
 
 ### Conversation logic
 
-`brain.py` defines `VENBrain`. On startup it loads `vocabulary.json` relative to the module, indexes entries by lowercase `word`, normalizes incoming messages, checks configured conversational intents, and then handles vocabulary question patterns or direct word lookups. Unsupported messages receive a learning/fallback response.
+`brain.py` defines `VENBrain`. It loads `vocabulary.json`, handles word requests, and remembers the last looked-up word so follow-ups such as “give an example” can use it. If an entry has no example, it composes a sentence from the word type and definition instead of returning a generic learning fallback.
 
-To add a conversational intent, update the intent phrases and corresponding response in `VENBrain`. Keep behavior and normalization in sync when adding new kinds of vocabulary questions.
+`response_engine.py` builds conversational responses from parsed propositions and rotates among alternative phrasings so consecutive greetings and personal-statement replies do not repeat exactly. This is rule-based response composition, not a local or hosted language model; improve it with reusable language mechanisms rather than a response for each exact sentence.
 
 ### Vocabulary data and builder
 
@@ -182,13 +183,13 @@ The builder enriches existing entries and attempts to grow the list to its confi
 
 ## API contract and current limitations
 
-The `/chat` endpoint takes a string `message` and returns a string `reply`, with optional `source_title` and `source_url` fields when Wikipedia is used. Request validation is handled by Pydantic. The backend currently has no database, authentication, rate limiting, or CORS middleware. In particular, browser-based frontend requests from a different origin need a CORS policy before the web app can use the API. Speech recognition availability and permissions vary by platform and device.
+The `/chat` endpoint takes a string `message` and returns a string `reply`, with optional `source_title` and `source_url` fields when web search is used. Request validation is handled by Pydantic. The backend currently has no database, authentication, rate limiting, or CORS middleware. In particular, browser-based frontend requests from a different origin need a CORS policy before the web app can use the API. Speech recognition availability and permissions vary by platform and device.
 
 ### Local learning and reasoning
 
 VEN does not call a hosted generative-AI API and does not train a language model. Built-in facts in `common_facts.json` are available without network access and are not copied into user memory. Declarative statements the local sentence interpreter can represent are saved in `ven_memory.json`; direct and transitive `is_a` relationships can then answer simple questions such as “Are birds living things?” from “Birds are animals” and “Animals are living things.” This is a small, explainable knowledge-inference step, not general human-like understanding.
 
-When local knowledge cannot answer an information request, `web_knowledge.py` sends cleaned search terms to Wikipedia’s public search API and returns a page excerpt with a clickable source URL. Results are cached locally in `ven_web_cache.json` for seven days. Web fallback needs an internet connection; if the request fails, VEN reports that Wikipedia could not be reached. The cache and learned facts are local development data and should not be committed. Answers depend on what the parser can represent and may be limited for ambiguous or complex language. Web retrieval does not make the device's speech-recognition provider offline.
+When local knowledge cannot answer an information request, `web_knowledge.py` sends cleaned search terms to Bing's public RSS search, then tries a DuckDuckGo instant answer and Wikipedia as fallbacks. It returns an indexed result excerpt with a clickable citation and caches results locally in `ven_web_cache.json` for seven days. This is search-result retrieval, not a crawler: it cannot guarantee coverage of every website or read private, paywalled, blocked, or unindexed pages. Search providers may rate-limit or change their pages. Web lookup needs internet access and sends the cleaned search query to those providers. The cache and learned facts are local development data and should not be committed. Rule-based phrasing does not provide open-ended language-model generation, and web retrieval does not make the device's speech-recognition provider offline.
 
 ## Troubleshooting
 

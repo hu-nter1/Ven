@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 
 
 # Initialize VEN's engines.
-ven_brain = VENBrain()
 ven_context = VENContext()
+ven_brain = VENBrain()
 ven_knowledge = VENKnowledge(
     facts=ven_context.facts,
     nlp=ven_context.semantic_engine.interpreter.nlp
@@ -40,9 +40,12 @@ def search_web(message):
     try:
         result = ven_web_knowledge.search(message)
     except WebLookupError as error:
-        logger.warning("Wikipedia lookup failed: %s", error)
+        logger.warning("Public web search failed: %s", error)
         return ChatResponse(
-            reply="I couldn't reach Wikipedia right now. Please try again later."
+            reply=(
+                "I couldn't reach public web search right now. "
+                "Please try again later."
+            )
         )
 
     if result:
@@ -72,18 +75,15 @@ def chat(request: ChatRequest):
             reply="You haven't said anything yet."
         )
 
-    # First, try VEN's vocabulary and conversation engine.
+    # First, use local conversation and vocabulary knowledge.
     brain_response = ven_brain.think(user_message)
-
-    fallback = "I am still learning. I don't understand that yet."
-
-    is_unknown_word = brain_response.startswith("I don't have the word")
-    if not brain_response.startswith(fallback) and not (
-        is_unknown_word and ven_web_knowledge.is_search_request(user_message)
-    ):
+    if brain_response is not None:
         return ChatResponse(reply=brain_response)
 
-    result = ven_context.process(user_message)
+    interpreted_message = user_message
+    if user_message.lower().startswith("am "):
+        interpreted_message = f"I {user_message}"
+    result = ven_context.process(interpreted_message)
 
     if result["decision"] == "question":
         knowledge_response = ven_knowledge.answer(user_message)
@@ -94,7 +94,11 @@ def chat(request: ChatRequest):
         if web_response:
             return web_response
 
-        return ChatResponse(reply=brain_response)
+        return ChatResponse(
+            reply=ven_brain.response_engine.respond_to_unknown_question(
+                user_message
+            )
+        )
 
     if ven_web_knowledge.is_search_request(user_message):
         web_response = search_web(user_message)
@@ -106,6 +110,23 @@ def chat(request: ChatRequest):
         "consistent",
         "contradiction"
     ):
-        return ChatResponse(reply=result["message"])
+        return ChatResponse(
+            reply=ven_brain.response_engine.respond_to_statement(
+                user_message,
+                result,
+            )
+        )
 
-    return ChatResponse(reply=brain_response)
+    if result["decision"] in ("incomplete", "uncertain"):
+        return ChatResponse(
+            reply=ven_brain.response_engine.respond_to_statement(
+                user_message,
+                result,
+            )
+        )
+
+    return ChatResponse(
+        reply=ven_brain.response_engine.respond_to_unknown_question(
+            user_message
+        )
+    )

@@ -1,6 +1,6 @@
 # VEN
 
-VEN is a voice-first personal assistant prototype. Its Expo app captures speech, sends the recognized text to a Python API, displays the response, and reads it aloud. The backend handles basic conversation, answers common and locally learned facts, and can retrieve a Wikipedia excerpt with a source link when a local answer is unavailable.
+VEN is a voice-first personal assistant prototype. Its Expo app captures speech, sends the recognized text to a Python API, displays the response, and reads it aloud. The backend composes varied local replies from sentence meaning and vocabulary, answers common and learned facts, and can search public web results with a source link.
 
 ## What’s in the repository
 
@@ -15,10 +15,11 @@ VEN is a voice-first personal assistant prototype. Its Expo app captures speech,
 - Basic greetings, thanks, farewells, identity, and help responses.
 - Vocabulary lookups for meanings, examples, synonyms, antonyms, and related words.
 - Offline answers from built-in common facts and local learning from explicit statements.
-- Wikipedia search fallback with a source link and a seven-day local result cache.
+- Varied rule-based conversational replies and generated example sentences from vocabulary definitions.
+- No-key public web search fallback with citations and a seven-day local result cache.
 - Animated visual background and VEN avatar.
 
-VEN does not use a hosted generative-AI API. Wikipedia lookup requires an internet connection; learned facts and cached results are stored locally by the backend. The Explore tab is currently template content, and the app does not save conversations between launches.
+VEN does not use a hosted generative-AI API or require search API keys. Replies are locally composed using rules and the available vocabulary; this is not open-ended language-model generation. Public web lookup requires internet access and uses search snippets/knowledge results; it cannot reach every page, private sites, or paywalled content. Learned facts and cached results are stored locally by the backend. The Explore tab is currently template content, and the app does not save conversations between launches.
 
 ## Run VEN locally
 
@@ -70,13 +71,13 @@ VEN's Android background-listening service and speech-recognition package requir
 
 ```json
 {
-  "reply": "Here's what I found on Wikipedia: ...",
+  "reply": "Here's a result from the web: ...",
   "source_title": "Mars",
   "source_url": "https://en.wikipedia.org/wiki/Mars"
 }
 ```
 
-`source_title` and `source_url` contain the Wikipedia page citation for web-backed answers and are `null` for local replies.
+`source_title` and `source_url` contain the cited page for web-backed answers and are `null` for local replies.
 
 ## Contributing
 

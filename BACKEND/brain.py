@@ -3,11 +3,15 @@ import json
 import re
 from pathlib import Path
 
+from response_engine import VENResponseEngine
+
 
 class VENBrain:
 
-    def __init__(self):
+    def __init__(self, response_engine=None):
         self.name = "VEN"
+        self.response_engine = response_engine or VENResponseEngine()
+        self.last_topic = None
 
         vocabulary_file = Path(__file__).parent / "vocabulary.json"
 
@@ -47,8 +51,12 @@ class VENBrain:
 
         # Different ways people ask vocabulary questions.
         self.word_patterns = [
-            ("example", r"example of (.+)"),
-            ("example", r"give me an example of (.+)"),
+            (
+                "example",
+                r"(?:can|could) you give (?:me )?an example(?: of (.+))?",
+            ),
+            ("example", r"(?:give (?:me )?)?an example of (.+)"),
+            ("example", r"(?:give (?:me )?)?an example"),
             ("example", r"use (.+) in a sentence"),
             ("example", r"show me an example of (.+)"),
 
@@ -77,7 +85,7 @@ class VENBrain:
             ("meaning", r"explain what (.+) means"),
             ("meaning", r"can you explain what (.+) means"),
             ("meaning", r"tell me what (.+) means"),
-            ("meaning", r"what is (.+)")
+            ("meaning", r"what is (.+)"),
         ]
 
     def normalize(self, message):
@@ -90,45 +98,27 @@ class VENBrain:
         pattern = r"(?<!\w)" + re.escape(phrase) + r"(?!\w)"
         return re.search(pattern, message) is not None
 
-    def find_word_request(self, message):
-
-        for request_type, pattern in self.word_patterns:
-            match = re.fullmatch(pattern, message)
-
-            if match:
-                word = match.group(1).strip()
-
-                # Remove common unnecessary words at the beginning.
-                word = re.sub(
-                    r"^(the|a|an)\s+",
-                    "",
-                    word
-                )
-
-                return word, request_type
-
-        return None, None
-
     def explain_word(self, word, request_type):
 
         data = self.vocabulary.get(word)
 
         if not data:
-            return (
-                f"I don't have the word '{word}' in my vocabulary yet. "
-                "I am still learning."
-            )
+            return None
 
         if request_type == "example":
             example = data.get("example")
 
             if example:
-                return f"Example of {word}: {example}"
-
-            return (
-                f"I know the meaning of {word}, "
-                "but I don't have an example sentence yet."
-            )
+                sentence = str(example).strip()
+                return self.response_engine.choose_response(
+                    f"example:{word}",
+                    [
+                        f"For example: {sentence}",
+                        f"Here's {word} in a sentence: {sentence}",
+                        f"You could say: {sentence}",
+                    ],
+                )
+            return self.generate_example(word, data)
 
         if request_type == "synonyms":
             synonyms = data.get("synonyms", [])
@@ -156,10 +146,49 @@ class VENBrain:
 
         meaning = data.get("meaning", "Meaning not available.")
         word_type = data.get("type", "unknown")
+        self.last_topic = word
+        return self.response_engine.choose_response(
+            f"meaning:{word}",
+            [
+                f"As a {word_type}, {word} means {meaning}.",
+                f"{word.capitalize()} is a {word_type}: {meaning}.",
+                f"In this sense, {word} refers to {meaning}.",
+            ],
+        )
 
-        return (
-            f"{word.capitalize()} is a {word_type}. "
-            f"{meaning}"
+    def generate_example(self, word, data):
+        word_type = data.get("type", "word")
+        meaning = data.get("meaning", "").strip().rstrip(".")
+
+        if word_type == "noun" and meaning:
+            person_definition = re.match(
+                r"^(?:a|an) person who (.+)$",
+                meaning,
+                re.IGNORECASE,
+            )
+            if person_definition:
+                article = "An" if word[:1].lower() in "aeiou" else "A"
+                example = (
+                    f"{article} {word} {person_definition.group(1)}."
+                )
+            else:
+                article = "An" if word[:1].lower() in "aeiou" else "A"
+                example = f"{article} {word} is {meaning}."
+        elif word_type == "verb":
+            example = f"They {word} every day."
+        elif word_type == "adjective":
+            example = f"The {word} choice made sense."
+        else:
+            example = f"The word {word} appeared in the sentence."
+
+        sentence_example = example[:1].lower() + example[1:]
+        return self.response_engine.choose_response(
+            f"example:{word}",
+            [
+                f"Here's an example of {word}: {example}",
+                f"You could use {word} like this: {example}",
+                f"For instance, {sentence_example}",
+            ],
         )
 
     def think(self, message):
@@ -169,35 +198,35 @@ class VENBrain:
         if not message:
             return "You haven't said anything yet."
 
+        for request_type, pattern in self.word_patterns:
+            match = re.fullmatch(pattern, message)
+            if not match:
+                continue
+            captured_word = match.group(1) if match.lastindex else None
+            word = (captured_word or self.last_topic or "").strip()
+            word = re.sub(r"^(the|a|an)\s+", "", word)
+            if not word:
+                if request_type == "example":
+                    return self.response_engine.respond_to_missing_example_topic()
+                return None
+
+            response = self.explain_word(word, request_type)
+            if response is not None:
+                self.last_topic = word
+            return response
+
         # Recognize conversational intentions.
         for intent, phrases in self.intents.items():
             for phrase in phrases:
                 if self.contains_phrase(message, phrase):
-                    return self.respond(intent)
-
-        # Recognize different vocabulary question formats.
-        word, request_type = self.find_word_request(message)
-
-        if word:
-            return self.explain_word(word, request_type)
+                    return self.respond(intent, message)
 
         # Look up a word entered directly.
         if message in self.vocabulary:
+            self.last_topic = message
             return self.explain_word(message, "meaning")
 
-        return (
-            "I am still learning. I don't understand that yet. "
-            "You can teach me by helping me learn new words and questions."
-        )
+        return None
 
-    def respond(self, intent):
-
-        responses = {
-            "greeting": "Hello! It is nice to talk with you.",
-            "gratitude": "You are welcome!",
-            "farewell": "Goodbye! Talk to you later.",
-            "identity": "My name is VEN. I am your personal AI assistant.",
-            "help": "Of course. Tell me what you need help with."
-        }
-
-        return responses.get(intent, "I am still learning.")
+    def respond(self, intent, message=""):
+        return self.response_engine.respond_to_intent(intent, message)
