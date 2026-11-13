@@ -2,7 +2,7 @@
 import logging
 from typing import Literal
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from brain import VENBrain
@@ -118,6 +118,7 @@ def chat(request: ChatRequest):
             )
         )
 
+
     if ven_web_knowledge.is_search_request(user_message):
         web_response = search_web(user_message)
         if web_response:
@@ -148,3 +149,18 @@ def chat(request: ChatRequest):
             user_message
         )
     )
+
+
+@app.get("/memory")
+def read_memory():
+    return {"facts": ven_context.show_memory()}
+
+
+@app.delete("/memory/{fact_index}")
+def forget_memory(fact_index: int):
+    if not 0 <= fact_index < len(ven_context.facts):
+        raise HTTPException(status_code=404, detail="Memory not found.")
+
+    ven_context.facts.pop(fact_index)
+    ven_context.save_memory()
+    return {"facts": ven_context.show_memory()}

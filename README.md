@@ -16,10 +16,11 @@ VEN is a voice-first personal assistant prototype. Its Expo app captures speech,
 - Vocabulary lookups for meanings, examples, synonyms, antonyms, and related words.
 - Offline answers from built-in common facts and local learning from explicit statements.
 - Varied rule-based conversational replies and generated example sentences from vocabulary definitions.
+- A left-side chat drawer with locally saved recent chats and learned-memory controls.
 - No-key public web search fallback with citations and a seven-day local result cache.
 - Animated visual background that resumes while VEN listens, and VEN avatar.
 
-VEN does not use a hosted generative-AI API or require search API keys. Replies are locally composed using rules and the available vocabulary; this is not open-ended language-model generation. Public web lookup requires internet access and uses search snippets/knowledge results; it cannot reach every page, private sites, or paywalled content. Learned facts and cached results are stored locally by the backend. The Explore tab is currently template content, and the app does not save conversations between launches.
+VEN does not use a hosted generative-AI API or require search API keys. Replies are locally composed using rules and the available vocabulary; this is not open-ended language-model generation. Public web lookup requires internet access and uses search snippets/knowledge results; it cannot reach every page, private sites, or paywalled content. Learned facts and cached results are stored locally by the backend. The Explore tab is currently template content. Recent conversations are saved on this device using AsyncStorage, and can be reopened or deleted from the drawer.
 
 ## Run VEN locally
 
@@ -39,6 +40,14 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 The health endpoint is `http://127.0.0.1:8000/`. Interactive API documentation is at `http://127.0.0.1:8000/docs`.
+
+### Deploy the backend to Render
+
+The repository includes [`render.yaml`](render.yaml), which configures a Python web service rooted at `BACKEND/`. In Render, create a **Blueprint** from this repository and deploy the `ven-backend` service. Render installs `BACKEND/requirements.txt`, runs Uvicorn on its assigned `$PORT`, and checks the `/` health endpoint. After deployment, verify `https://<your-service>.onrender.com/` returns `{"message":"VEN backend is online."}`.
+
+To connect the app to the deployed service, set `EXPO_PUBLIC_API_URL` to the Render HTTPS base URL before starting Expo or building the app. For example, create `FRONTEND/.env.local` with `EXPO_PUBLIC_API_URL=https://<your-service>.onrender.com` and restart Expo. This overrides the local-network development URL.
+
+Render's default service filesystem is ephemeral. VEN's learned facts and web cache are file-backed, so they can be lost when the service restarts or redeploys unless you configure persistent storage.
 
 ### 2. Configure and start the app
 
@@ -84,6 +93,7 @@ VEN's Android background-listening service and speech-recognition package requir
 
 `source_title` and `source_url` contain the cited page for web-backed answers and are `null` for local replies.
 The app sends up to eight recent turns so follow-up questions such as “What did you say?” can refer to VEN's last reply; this context is not saved by the backend.
+Use the left-side menu icon to start or delete a chat, reopen a recent conversation, or manage learned facts in Memory. Recent chats are stored locally on the device; Memory facts are stored by the backend.
 
 ## Contributing
 

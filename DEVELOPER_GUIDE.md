@@ -19,7 +19,7 @@ Expo app (FRONTEND)
           └── expo-speech reads reply aloud
 ```
 
-The frontend owns speech capture, conversation display, and text-to-speech. It sends up to eight recent turns with each request so `VENBrain` can handle repeat and clarification follow-ups without misrouting them to web search; the backend does not persist this history. `VENBrain` handles vocabulary questions and conversational intents; `VENResponseEngine` composes varied rule-based replies from interpreted statements and combines greeting variations across time periods. Local facts come from `common_facts.json` and explicit learned statements in `ven_memory.json`; questions are not saved as facts. If local knowledge cannot answer an information request, the backend tries Bing's public RSS search, a DuckDuckGo instant answer, and then Wikipedia, returning the selected excerpt and citation. Search terms preserve important word forms, and results need to match multiple query terms when the query contains more than one. Results are cached in `ven_web_cache.json`. No hosted generative-AI model or search API key is used.
+The frontend owns speech capture, conversation display, and text-to-speech. It saves recent conversations locally with AsyncStorage and sends up to eight recent turns with each request so `VENBrain` can handle repeat and clarification follow-ups without misrouting them to web search; the backend does not persist chat history. The left-side drawer lets users start or delete chats, reopen a recent conversation, and review or forget learned facts. `VENBrain` handles vocabulary questions and conversational intents; `VENResponseEngine` composes varied rule-based replies from interpreted statements and combines greeting variations across time periods. Local facts come from `common_facts.json` and explicit learned statements in `ven_memory.json`; questions are not saved as facts. If local knowledge cannot answer an information request, the backend tries Bing's public RSS search, a DuckDuckGo instant answer, and then Wikipedia, returning the selected excerpt and citation. Search terms preserve important word forms, and results need to match multiple query terms when the query contains more than one. Results are cached in `ven_web_cache.json`. No hosted generative-AI model or search API key is used.
 
 ## Requirements
 
@@ -37,7 +37,7 @@ npm ci
 npx expo start
 ```
 
-Run the app on Android, iOS, or web using the Expo CLI. Speech recognition and VEN's Android background-listening service require a development build, not Expo Go. After changing native configuration or the local native module, regenerate/build the Android app:
+Run the app on Android, iOS, or web using the Expo CLI. Speech recognition, AsyncStorage, and VEN's Android background-listening service require a development build, not Expo Go. After adding or changing native modules, regenerate/build and reinstall the app:
 
 ```bash
 npx expo run:android
@@ -50,15 +50,22 @@ On Android, tapping **Start listening** starts a microphone foreground service a
 
 The Android foreground service keeps the user-requested listening task active; the operating system's speech-recognition provider still performs transcription and may impose its own limits or require network access. The service does not provide wake-word detection and cannot restart VEN after the user force-stops the app.
 
-The backend base URL is currently a source constant named `API_URL` in `src/components/ven-speech.tsx`. Update it for the target running the app:
+The backend base URL is configured with `EXPO_PUBLIC_API_URL` in `src/components/ven-speech.tsx`; if unset, the app uses the current local-network development URL. Set the variable to the target API's base URL:
 
 | Target | Typical local API URL |
 | --- | --- |
 | iOS simulator | `http://127.0.0.1:8000` |
 | Android emulator | `http://10.0.2.2:8000` |
 | Physical device | `http://<computer-LAN-IP>:8000` |
+| Render deployment | `https://<your-service>.onrender.com` |
 
 For a physical device, bind the backend to `0.0.0.0`, keep both devices on the same network, and use the computer’s LAN address. The current backend is plain HTTP and has no authentication; use it for local development only.
+
+### Deploy on Render
+
+The root [`render.yaml`](render.yaml) Blueprint defines a Python web service whose root directory is `BACKEND`. Create a Render Blueprint from the repository to deploy it. The service installs `requirements.txt`, starts with Uvicorn bound to Render's `$PORT`, and uses `GET /` as its health check. Set `EXPO_PUBLIC_API_URL=https://<your-service>.onrender.com` in `FRONTEND/.env.local` for local Expo runs; set it in the frontend build environment for production app builds.
+
+Render's default filesystem is ephemeral. Learned facts (`ven_memory.json`) and the web lookup cache (`ven_web_cache.json`) may be lost when the service restarts or redeploys. Use a Render persistent disk or an external database if this data must survive.
 
 ### Project layout
 
@@ -113,13 +120,12 @@ The local release build is signed with the checked-in debug signing configuratio
 
 ### Install and run
 
-From the repository root:
+For local development, from the repository root:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install fastapi "uvicorn[standard]" spacy
-python -m spacy download en_core_web_sm
+python -m pip install -r BACKEND/requirements.txt
 cd BACKEND
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
@@ -128,6 +134,8 @@ The API is defined in `main.py`:
 
 - `GET /` — health/status response.
 - `POST /chat` — accepts `{"message": "..."}`, an optional device-local `local_hour` from 0 to 23, and up to eight optional `conversation_history` turns (`role` is `user` or `assistant`, with a `content` string). The mobile app sends its local hour for time-aware greetings and recent turns for contextual follow-ups. History is request context only and is not persisted. It returns `{"reply": "..."}`, optionally with `source_title` and `source_url` for web-backed answers.
+- `GET /memory` — returns learned facts as `{"facts": [...]}`.
+- `DELETE /memory/{fact_index}` — forgets the learned fact at the zero-based index and returns the remaining facts. It returns 404 if the index is not present.
 
 For example:
 

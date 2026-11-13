@@ -1,7 +1,14 @@
 import unittest
 from unittest.mock import patch
 
-from main import ChatRequest, ChatResponse, chat
+from main import (
+    ChatRequest,
+    ChatResponse,
+    chat,
+    forget_memory,
+    read_memory,
+    ven_context,
+)
 
 
 class ChatRoutingTests(unittest.TestCase):
@@ -88,6 +95,33 @@ class ChatRoutingTests(unittest.TestCase):
 
         self.assertEqual(response.source_title, "Example")
         self.assertEqual(response.source_url, "https://example.org/article")
+
+    def test_memory_endpoint_lists_learned_facts(self):
+        facts = [{"subject": "i", "relation": "has_property", "object": "calm"}]
+        with patch.object(ven_context, "facts", facts):
+            self.assertEqual(read_memory(), {"facts": facts})
+
+    def test_memory_endpoint_can_forget_a_selected_fact(self):
+        facts = [
+            {"subject": "i", "relation": "has_property", "object": "calm"},
+            {"subject": "i", "relation": "likes", "object": "music"},
+        ]
+        with (
+            patch.object(ven_context, "facts", facts),
+            patch.object(ven_context, "save_memory") as save_memory,
+        ):
+            result = forget_memory(0)
+
+        self.assertEqual(len(result["facts"]), 1)
+        self.assertEqual(result["facts"][0]["object"], "music")
+        save_memory.assert_called_once_with()
+
+    def test_memory_endpoint_rejects_an_invalid_fact_index(self):
+        with patch.object(ven_context, "facts", []):
+            with self.assertRaises(Exception) as error:
+                forget_memory(0)
+
+        self.assertEqual(getattr(error.exception, "status_code", None), 404)
 
 
 if __name__ == "__main__":
