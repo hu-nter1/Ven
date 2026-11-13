@@ -19,7 +19,7 @@ Expo app (FRONTEND)
           └── expo-speech reads reply aloud
 ```
 
-The frontend owns speech capture, conversation display, and text-to-speech. `VENBrain` handles vocabulary questions and conversational intents; `VENResponseEngine` composes varied rule-based replies from interpreted statements and varies wording for repeated intents. Local facts come from `common_facts.json` and explicit learned statements in `ven_memory.json`; questions are not saved as facts. If local knowledge cannot answer an information request, the backend tries Bing's public RSS search, a DuckDuckGo instant answer, and then Wikipedia, returning the selected excerpt and citation. Results are cached in `ven_web_cache.json`. No hosted generative-AI model or search API key is used, and chat history is not stored.
+The frontend owns speech capture, conversation display, and text-to-speech. It sends up to eight recent turns with each request so `VENBrain` can handle repeat and clarification follow-ups without misrouting them to web search; the backend does not persist this history. `VENBrain` handles vocabulary questions and conversational intents; `VENResponseEngine` composes varied rule-based replies from interpreted statements and combines greeting variations across time periods. Local facts come from `common_facts.json` and explicit learned statements in `ven_memory.json`; questions are not saved as facts. If local knowledge cannot answer an information request, the backend tries Bing's public RSS search, a DuckDuckGo instant answer, and then Wikipedia, returning the selected excerpt and citation. Search terms preserve important word forms, and results need to match multiple query terms when the query contains more than one. Results are cached in `ven_web_cache.json`. No hosted generative-AI model or search API key is used.
 
 ## Requirements
 
@@ -46,7 +46,7 @@ npx expo start --dev-client
 
 The project uses Continuous Native Generation, so configure native behavior through `app.json`, config plugins, and local Expo modules rather than hand-editing generated `ios/` or `android/` directories.
 
-On Android, tapping **Start listening** starts a microphone foreground service and displays an ongoing notification. Android 13 and later require notification permission for the visible notification. Tapping **Stop listening** stops recognition and removes the notification. Android may still stop microphone work if the user force-stops the app, revokes permissions, or device-specific battery controls terminate it. iOS does not use this Android service and remains subject to iOS background speech-recognition restrictions.
+On Android, tapping **Start listening** starts a microphone foreground service and displays an ongoing notification. Android 13 and later require notification permission for the visible notification. The home screen passes listening state to the video background, which resumes playback if the native player pauses while speech recognition is active. Tapping **Stop listening** stops recognition and removes the notification. Android may still stop microphone work if the user force-stops the app, revokes permissions, or device-specific battery controls terminate it. iOS does not use this Android service and remains subject to iOS background speech-recognition restrictions.
 
 The Android foreground service keeps the user-requested listening task active; the operating system's speech-recognition provider still performs transcription and may impose its own limits or require network access. The service does not provide wake-word detection and cannot restart VEN after the user force-stops the app.
 
@@ -127,14 +127,14 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 The API is defined in `main.py`:
 
 - `GET /` — health/status response.
-- `POST /chat` — accepts `{"message": "..."}` and returns `{"reply": "..."}`, optionally with `source_title` and `source_url` for web-backed answers.
+- `POST /chat` — accepts `{"message": "..."}`, an optional device-local `local_hour` from 0 to 23, and up to eight optional `conversation_history` turns (`role` is `user` or `assistant`, with a `content` string). The mobile app sends its local hour for time-aware greetings and recent turns for contextual follow-ups. History is request context only and is not persisted. It returns `{"reply": "..."}`, optionally with `source_title` and `source_url` for web-backed answers.
 
 For example:
 
 ```bash
 curl -X POST http://127.0.0.1:8000/chat \
   -H 'Content-Type: application/json' \
-  -d '{"message":"What is the capital of France?"}'
+  -d '{"message":"What is the capital of France?","local_hour":13,"conversation_history":[]}'
 ```
 
 FastAPI’s interactive documentation is available at `http://127.0.0.1:8000/docs`.

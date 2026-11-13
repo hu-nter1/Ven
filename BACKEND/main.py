@@ -1,8 +1,9 @@
 
 import logging
+from typing import Literal
 
 from fastapi import FastAPI
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from brain import VENBrain
 from context_engine import VENContext
@@ -26,8 +27,18 @@ ven_web_knowledge = VENWebKnowledge(
 )
 
 
+class ConversationTurn(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=2000)
+
+
 class ChatRequest(BaseModel):
     message: str
+    local_hour: int | None = Field(default=None, ge=0, le=23)
+    conversation_history: list[ConversationTurn] = Field(
+        default_factory=list,
+        max_length=8,
+    )
 
 
 class ChatResponse(BaseModel):
@@ -76,7 +87,14 @@ def chat(request: ChatRequest):
         )
 
     # First, use local conversation and vocabulary knowledge.
-    brain_response = ven_brain.think(user_message)
+    brain_response = ven_brain.think(
+        user_message,
+        request.local_hour,
+        [
+            turn.model_dump()
+            for turn in request.conversation_history
+        ],
+    )
     if brain_response is not None:
         return ChatResponse(reply=brain_response)
 

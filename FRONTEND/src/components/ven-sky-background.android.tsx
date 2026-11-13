@@ -1,7 +1,13 @@
+import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 
-export function VenSkyBackground() {
+export function VenSkyBackground({
+  isListening,
+}: {
+  isListening: boolean;
+}) {
+  const isListeningRef = useRef(isListening);
   const player = useVideoPlayer(
     require('../../assets/ven-android.mp4'),
     player => {
@@ -15,6 +21,23 @@ export function VenSkyBackground() {
       player.play();
     }
   );
+
+  useEffect(() => {
+    isListeningRef.current = isListening;
+    if (isListening && !player.playing) {
+      player.play();
+    }
+  }, [isListening, player]);
+
+  useEffect(() => {
+    const subscription = player.addListener('playingChange', event => {
+      if (!event.isPlaying && isListeningRef.current) {
+        player.play();
+      }
+    });
+
+    return () => subscription.remove();
+  }, [player]);
 
   return (
     <View pointerEvents="none" style={styles.container}>

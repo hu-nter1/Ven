@@ -191,12 +191,19 @@ class VENBrain:
             ],
         )
 
-    def think(self, message):
+    def think(self, message, local_hour=None, conversation_history=None):
 
         message = self.normalize(message)
 
         if not message:
             return "You haven't said anything yet."
+
+        follow_up = self.respond_to_follow_up(
+            message,
+            conversation_history or [],
+        )
+        if follow_up is not None:
+            return follow_up
 
         for request_type, pattern in self.word_patterns:
             match = re.fullmatch(pattern, message)
@@ -219,7 +226,7 @@ class VENBrain:
         for intent, phrases in self.intents.items():
             for phrase in phrases:
                 if self.contains_phrase(message, phrase):
-                    return self.respond(intent, message)
+                    return self.respond(intent, message, local_hour)
 
         # Look up a word entered directly.
         if message in self.vocabulary:
@@ -228,5 +235,74 @@ class VENBrain:
 
         return None
 
-    def respond(self, intent, message=""):
-        return self.response_engine.respond_to_intent(intent, message)
+    def respond_to_follow_up(self, message, conversation_history):
+        repeat_patterns = (
+            r"what did you (?:just )?say",
+            r"what was that",
+            r"(?:can|could) you repeat(?: that)?(?: please)?",
+            r"please repeat(?: that)?",
+            r"say that again",
+            r"repeat that",
+            r"come again",
+        )
+        clarify_patterns = (
+            r"what do you mean",
+            r"what are you talking about",
+            r"explain that",
+            r"what does that mean",
+        )
+        is_repeat = any(
+            re.fullmatch(pattern, message)
+            for pattern in repeat_patterns
+        )
+        is_clarification = any(
+            re.fullmatch(pattern, message)
+            for pattern in clarify_patterns
+        )
+        if not is_repeat and not is_clarification:
+            return None
+
+        previous_reply = next(
+            (
+                turn.get("content", "").strip()
+                for turn in reversed(conversation_history)
+                if turn.get("role") == "assistant"
+                and turn.get("content", "").strip()
+            ),
+            None,
+        )
+        if not previous_reply:
+            return self.response_engine.choose_response(
+                "missing_conversation_context",
+                [
+                    "I haven't replied in this chat yet. What would you like to ask me?",
+                    "There's nothing for me to repeat just yet—send me a message and I'll respond.",
+                    "I don't have an earlier reply in this chat. What can I help with?",
+                ],
+            )
+
+        if is_repeat:
+            return self.response_engine.choose_response(
+                "repeat_previous_reply",
+                [
+                    f"I said: “{previous_reply}”",
+                    f"My last reply was: “{previous_reply}”",
+                    f"Just before that, I said: “{previous_reply}”",
+                ],
+            )
+
+        return self.response_engine.choose_response(
+            "clarify_previous_reply",
+            [
+                f"I was referring to my last reply: “{previous_reply}”",
+                f"I meant what I said just before: “{previous_reply}”",
+                f"My previous message was: “{previous_reply}”",
+            ],
+        )
+
+    def respond(self, intent, message="", local_hour=None):
+        return self.response_engine.respond_to_intent(
+            intent,
+            message,
+            local_hour,
+        )

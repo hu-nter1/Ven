@@ -20,7 +20,62 @@ class ConversationTests(unittest.TestCase):
         third = self.brain.think("How are you?")
 
         self.assertNotEqual(first, second)
-        self.assertIn("How are you doing?", third)
+        self.assertIn("How are you doing", third)
+
+    def test_greetings_have_many_combinations_at_every_time_of_day(self):
+        option_counts = []
+        engine = VENResponseEngine(
+            choose=lambda choices: (
+                option_counts.append(len(choices)),
+                choices[0],
+            )[1]
+        )
+
+        for hour in (7, 13, 18, 23):
+            with self.subTest(hour=hour):
+                reply = engine.respond_to_intent(
+                    "greeting",
+                    "Hello",
+                    local_hour=hour,
+                )
+                self.assertTrue(reply.startswith(engine.greeting_context(hour)[0]))
+
+        self.assertTrue(all(count >= 80 for count in option_counts))
+
+    def test_repeat_and_clarification_followups_use_conversation_history(self):
+        history = [
+            {"role": "user", "content": "Who is Ada Lovelace?"},
+            {"role": "assistant", "content": "Ada Lovelace was a mathematician."},
+        ]
+
+        repeated = self.brain.think(
+            "What did you say?",
+            conversation_history=history,
+        )
+        clarified = self.brain.think(
+            "What do you mean?",
+            conversation_history=history,
+        )
+        without_history = self.brain.think("What did you say?")
+
+        self.assertIn("Ada Lovelace was a mathematician.", repeated)
+        self.assertIn("Ada Lovelace was a mathematician.", clarified)
+        self.assertIn("haven't replied", without_history)
+
+    def test_greetings_use_the_phone_local_time_of_day(self):
+        expected = {
+            7: "Good morning!",
+            13: "Good afternoon!",
+            18: "Good evening!",
+            23: "Hello!",
+            2: "Hello!",
+        }
+        for hour, salutation in expected.items():
+            with self.subTest(hour=hour):
+                reply = self.brain.think("Hello", local_hour=hour)
+                self.assertTrue(reply.startswith(salutation))
+                if hour in (23, 2):
+                    self.assertIn("night", reply)
 
     def test_word_definition_and_follow_up_example_use_local_knowledge(self):
         definition = self.brain.think("What is an engineer?")

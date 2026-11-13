@@ -176,12 +176,12 @@ class VENWebKnowledge:
         for token in self.nlp(message):
             if token.is_space or token.is_punct:
                 continue
-            lemma = token.lemma_.lower().strip()
-            if not lemma or lemma in self.FILLER_WORDS:
+            word = token.text.lower().strip()
+            if not word or word in self.FILLER_WORDS:
                 continue
-            if not any(character.isalnum() for character in lemma):
+            if not any(character.isalnum() for character in word):
                 continue
-            tokens.append(lemma)
+            tokens.append(word)
 
         if not tokens:
             return None
@@ -470,7 +470,12 @@ class VENWebKnowledge:
         page_terms = set(cls.normalize_terms(
             f"{page.get('title', '')} {page.get('excerpt', '')}"
         ))
-        if not query_terms & page_terms:
+        matched_terms = query_terms & page_terms
+        minimum_matches = min(
+            len(query_terms),
+            max(1, (len(query_terms) + 1) // 2),
+        )
+        if len(matched_terms) < minimum_matches:
             return False
 
         capital_query = re.search(

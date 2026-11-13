@@ -12,12 +12,12 @@ VEN is a voice-first personal assistant prototype. Its Expo app captures speech,
 
 - Voice input with a start/stop listening control and microphone permission handling.
 - Spoken replies and a scrolling conversation view.
-- Basic greetings, thanks, farewells, identity, and help responses.
+- Time-aware greetings based on the phone's local time, plus thanks, farewells, identity, and help responses.
 - Vocabulary lookups for meanings, examples, synonyms, antonyms, and related words.
 - Offline answers from built-in common facts and local learning from explicit statements.
 - Varied rule-based conversational replies and generated example sentences from vocabulary definitions.
 - No-key public web search fallback with citations and a seven-day local result cache.
-- Animated visual background and VEN avatar.
+- Animated visual background that resumes while VEN listens, and VEN avatar.
 
 VEN does not use a hosted generative-AI API or require search API keys. Replies are locally composed using rules and the available vocabulary; this is not open-ended language-model generation. Public web lookup requires internet access and uses search snippets/knowledge results; it cannot reach every page, private sites, or paywalled content. Learned facts and cached results are stored locally by the backend. The Explore tab is currently template content, and the app does not save conversations between launches.
 
@@ -65,7 +65,12 @@ VEN's Android background-listening service and speech-recognition package requir
 
 ```json
 {
-  "message": "Tell me about Mars."
+  "message": "Tell me about Mars.",
+  "local_hour": 13,
+  "conversation_history": [
+    {"role": "user", "content": "What is Mars?"},
+    {"role": "assistant", "content": "Mars is the fourth planet from the Sun."}
+  ]
 }
 ```
 
@@ -78,6 +83,7 @@ VEN's Android background-listening service and speech-recognition package requir
 ```
 
 `source_title` and `source_url` contain the cited page for web-backed answers and are `null` for local replies.
+The app sends up to eight recent turns so follow-up questions such as “What did you say?” can refer to VEN's last reply; this context is not saved by the backend.
 
 ## Contributing
 

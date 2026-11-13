@@ -59,6 +59,26 @@ class WebKnowledgeTests(unittest.TestCase):
         self.assertIn("q=engineer", open_url.call_args.args[0].full_url)
         self.assertIn("format=rss", open_url.call_args.args[0].full_url)
 
+    def test_search_query_preserves_superlative_meaning(self):
+        query = self.knowledge.make_query(
+            "Who is the greatest man in the world?"
+        )
+
+        self.assertEqual(query, "greatest man in world")
+
+    def test_rejects_search_results_matching_only_one_question_term(self):
+        result = {
+            "title": "Greatest - definition and meaning",
+            "excerpt": "Greatest means larger or better than others.",
+        }
+
+        self.assertFalse(
+            self.knowledge.page_matches_query(
+                result,
+                "greatest man in world",
+            )
+        )
+
     def test_reuses_and_persists_web_results_in_a_local_cache(self):
         with patch(
             "web_knowledge.urlopen",

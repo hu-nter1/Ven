@@ -1,4 +1,5 @@
 import random
+from datetime import datetime
 
 
 class VENResponseEngine:
@@ -13,23 +14,76 @@ class VENResponseEngine:
         self.last_responses[key] = response
         return response
 
-    def respond_to_intent(self, intent, message=""):
+    @staticmethod
+    def greeting_context(local_hour=None):
+        hour = datetime.now().hour if local_hour is None else local_hour
+        if 5 <= hour < 12:
+            return "Good morning!", "morning"
+        if 12 <= hour < 17:
+            return "Good afternoon!", "afternoon"
+        if 17 <= hour < 21:
+            return "Good evening!", "evening"
+        return "Hello!", "night"
+
+    def respond_to_intent(self, intent, message="", local_hour=None):
         normalized = message.lower()
 
         if intent == "greeting":
+            salutation, time_period = self.greeting_context(local_hour)
+            time_reference = (
+                "tonight"
+                if time_period == "night"
+                else f"this {time_period}"
+            )
             if "how are you" in normalized:
+                openings = [
+                    f"I'm doing well and ready to chat {time_reference}.",
+                    f"I'm here and happy to help {time_reference}.",
+                    f"Doing well, thanks for asking, and glad to be here {time_reference}.",
+                    f"I'm glad you stopped by {time_reference}.",
+                    f"I'm ready for a good conversation {time_reference}.",
+                    f"I'm right here with you {time_reference}.",
+                ]
+                follow_ups = [
+                    "How are you doing?",
+                    f"How has your {time_period} been?",
+                    "What's on your mind?",
+                    "Anything interesting happening?",
+                    "What would you like to talk about?",
+                    "How are things going on your end?",
+                ]
                 choices = [
-                    "I'm here and ready to help. How are you doing?",
-                    "Doing well, thanks for asking. What's on your mind?",
-                    "I'm ready to chat. How has your day been?",
-                    "All good here. What would you like to talk about?",
+                    f"{salutation} {opening} {follow_up}"
+                    for opening in openings
+                    for follow_up in follow_ups
                 ]
             else:
+                openings = [
+                    f"It's lovely to hear from you {time_reference}.",
+                    f"Nice to have you here {time_reference}.",
+                    f"I'm glad you stopped by {time_reference}.",
+                    f"Great to chat with you {time_reference}.",
+                    f"I'm here and ready to help {time_reference}.",
+                    f"Let's make this a good conversation {time_reference}.",
+                    f"It's good to see you {time_reference}.",
+                    f"I'm listening, and ready to chat {time_reference}.",
+                ]
+                follow_ups = [
+                    "What would you like to talk about?",
+                    "What's on your mind?",
+                    "How can I help?",
+                    "Is there something you'd like to explore?",
+                    "What has caught your interest?",
+                    "What can we figure out together?",
+                    "How's everything going?",
+                    "Where would you like to start?",
+                    "Do you have a question for me?",
+                    "Anything you'd like to dive into?",
+                ]
                 choices = [
-                    "Hey! What would you like to talk about?",
-                    "Hi there. What's on your mind?",
-                    "Hello! How can I make your day a little easier?",
-                    "Hey, good to hear from you. What are you thinking about?",
+                    f"{salutation} {opening} {follow_up}"
+                    for opening in openings
+                    for follow_up in follow_ups
                 ]
         elif intent == "gratitude":
             choices = [

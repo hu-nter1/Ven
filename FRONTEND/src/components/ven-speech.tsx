@@ -43,7 +43,11 @@ type ChatResponse = {
   source_url?: string | null;
 };
 
-export function VenSpeech() {
+export function VenSpeech({
+  onListeningChange,
+}: {
+  onListeningChange: (enabled: boolean) => void;
+}) {
   const [recognizing, setRecognizing] = useState(false);
   const [listeningEnabled, setListeningEnabled] = useState(false);
   const [message, setMessage] = useState('VEN is ready.');
@@ -161,6 +165,11 @@ export function VenSpeech() {
         },
         body: JSON.stringify({
           message: userMessage,
+          local_hour: new Date().getHours(),
+          conversation_history: messages.slice(-8).map(item => ({
+            role: item.sender === 'You' ? 'user' : 'assistant',
+            content: item.text,
+          })),
         }),
       });
 
@@ -348,11 +357,13 @@ export function VenSpeech() {
       keepListening.current = true;
 
       setListeningEnabled(true);
+      onListeningChange(true);
       setMessage('Checking speech recognition...');
 
       if (!ExpoSpeechRecognitionModule.isRecognitionAvailable()) {
         keepListening.current = false;
         setListeningEnabled(false);
+        onListeningChange(false);
         setMessage('Speech recognition is unavailable.');
         return;
       }
@@ -363,6 +374,7 @@ export function VenSpeech() {
       if (!permission.granted) {
         keepListening.current = false;
         setListeningEnabled(false);
+        onListeningChange(false);
         setMessage('Microphone permission denied.');
         return;
       }
@@ -372,6 +384,7 @@ export function VenSpeech() {
     } catch (error) {
       keepListening.current = false;
       setListeningEnabled(false);
+      onListeningChange(false);
       setMessage(
         error instanceof Error
           ? error.message
@@ -399,6 +412,7 @@ export function VenSpeech() {
     clearSpeechStartTimeout();
 
     setListeningEnabled(false);
+    onListeningChange(false);
 
     Speech.stop();
     ExpoSpeechRecognitionModule.stop();

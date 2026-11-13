@@ -1,4 +1,5 @@
 
+import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { VenSpeech } from '@/components/ven-speech';
@@ -6,12 +7,14 @@ import { VenAvatar } from '@/components/ven-avatar';
 import { VenSkyBackground } from '@/components/ven-sky-background';
 
 export default function HomeScreen() {
+  const [isListening, setIsListening] = useState(false);
+
   return (
     <View style={styles.container}>
 
       {/* Moving sky */}
       <View style={styles.skyLayer} pointerEvents="none">
-        <VenSkyBackground />
+        <VenSkyBackground isListening={isListening} />
       </View>
 
       {/* VEN portrait behind the chat */}
@@ -24,7 +27,7 @@ export default function HomeScreen() {
 
       {/* Full-screen chat and microphone controls */}
       <View style={styles.chatLayer}>
-        <VenSpeech />
+        <VenSpeech onListeningChange={setIsListening} />
       </View>
 
     </View>
