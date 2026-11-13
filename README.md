@@ -16,10 +16,13 @@ VEN is a voice-first personal assistant prototype. Its Expo app captures speech,
 - Vocabulary lookups for meanings, examples, synonyms, antonyms, and related words.
 - Offline answers from built-in common facts and local learning from explicit statements.
 - Varied rule-based conversational replies and generated example sentences from vocabulary definitions.
+- Context-aware replies to affirmations and other follow-ups, with conservative correction of likely spelling or transcription errors.
 - No-key public web search fallback with citations and a seven-day local result cache.
+- A left-side chat drawer with locally saved recent conversations and learned-memory controls.
 - Animated visual background that resumes while VEN listens, and VEN avatar.
 
-VEN does not use a hosted generative-AI API or require search API keys. Replies are locally composed using rules and the available vocabulary; this is not open-ended language-model generation. Public web lookup requires internet access and uses search snippets/knowledge results; it cannot reach every page, private sites, or paywalled content. Learned facts and cached results are stored locally by the backend. The Explore tab is currently template content, and the app does not save conversations between launches.
+VEN does not use a hosted generative-AI API or require search API keys. Replies are locally composed using rules and the available vocabulary; this is not open-ended language-model generation. Public web lookup requires internet access and uses search snippets/knowledge results; it cannot reach every page, private sites, or paywalled content. Learned facts and cached results are stored locally by the backend. The Explore tab is currently template content.
+Recent conversations are saved on the device using AsyncStorage (up to 50 chats). The drawer can reopen a saved chat, start a new one, or delete the current one. Its Memory view lists facts stored by the backend and lets you forget individual facts.
 
 ## Run VEN locally
 
@@ -67,6 +70,7 @@ VEN's Android background-listening service and speech-recognition package requir
 {
   "message": "Tell me about Mars.",
   "local_hour": 13,
+  "new_conversation": true,
   "conversation_history": [
     {"role": "user", "content": "What is Mars?"},
     {"role": "assistant", "content": "Mars is the fourth planet from the Sun."}
@@ -84,6 +88,7 @@ VEN's Android background-listening service and speech-recognition package requir
 
 `source_title` and `source_url` contain the cited page for web-backed answers and are `null` for local replies.
 The app sends up to eight recent turns so follow-up questions such as “What did you say?” can refer to VEN's last reply; this context is not saved by the backend.
+Conversations are saved locally on the device and are not uploaded or synchronized by the app. **New chat** keeps the current chat in Recent Chats and starts a fresh conversation; **Delete chat** removes the selected conversation from this device. The drawer's Memory section calls `GET /memory` and `DELETE /memory/{fact_index}` to view and forget facts stored by the backend.
 
 ## Contributing
 

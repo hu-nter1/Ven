@@ -2,7 +2,7 @@
 import logging
 from typing import Literal
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from brain import VENBrain
@@ -35,6 +35,7 @@ class ConversationTurn(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     local_hour: int | None = Field(default=None, ge=0, le=23)
+    new_conversation: bool = False
     conversation_history: list[ConversationTurn] = Field(
         default_factory=list,
         max_length=8,
@@ -86,9 +87,13 @@ def chat(request: ChatRequest):
             reply="You haven't said anything yet."
         )
 
+    interpreted_message = ven_brain.correct_message(user_message)
+    if request.new_conversation:
+        ven_brain.last_topic = None
+
     # First, use local conversation and vocabulary knowledge.
     brain_response = ven_brain.think(
-        user_message,
+        interpreted_message,
         request.local_hour,
         [
             turn.model_dump()
@@ -98,28 +103,28 @@ def chat(request: ChatRequest):
     if brain_response is not None:
         return ChatResponse(reply=brain_response)
 
-    interpreted_message = user_message
-    if user_message.lower().startswith("am "):
-        interpreted_message = f"I {user_message}"
+    if interpreted_message.lower().startswith("am "):
+        interpreted_message = f"I {interpreted_message}"
     result = ven_context.process(interpreted_message)
 
     if result["decision"] == "question":
-        knowledge_response = ven_knowledge.answer(user_message)
+        knowledge_response = ven_knowledge.answer(interpreted_message)
         if "I don't know that yet." not in knowledge_response:
             return ChatResponse(reply=knowledge_response)
 
-        web_response = search_web(user_message)
+        web_response = search_web(interpreted_message)
         if web_response:
             return web_response
 
         return ChatResponse(
             reply=ven_brain.response_engine.respond_to_unknown_question(
-                user_message
+                interpreted_message
             )
         )
 
-    if ven_web_knowledge.is_search_request(user_message):
-        web_response = search_web(user_message)
+
+    if ven_web_knowledge.is_search_request(interpreted_message):
+        web_response = search_web(interpreted_message)
         if web_response:
             return web_response
 
@@ -130,7 +135,7 @@ def chat(request: ChatRequest):
     ):
         return ChatResponse(
             reply=ven_brain.response_engine.respond_to_statement(
-                user_message,
+                interpreted_message,
                 result,
             )
         )
@@ -138,13 +143,28 @@ def chat(request: ChatRequest):
     if result["decision"] in ("incomplete", "uncertain"):
         return ChatResponse(
             reply=ven_brain.response_engine.respond_to_statement(
-                user_message,
+                interpreted_message,
                 result,
             )
         )
 
     return ChatResponse(
         reply=ven_brain.response_engine.respond_to_unknown_question(
-            user_message
+            interpreted_message
         )
     )
+
+
+@app.get("/memory")
+def read_memory():
+    return {"facts": ven_context.show_memory()}
+
+
+@app.delete("/memory/{fact_index}")
+def forget_memory(fact_index: int):
+    if not 0 <= fact_index < len(ven_context.facts):
+        raise HTTPException(status_code=404, detail="Memory not found.")
+
+    ven_context.facts.pop(fact_index)
+    ven_context.save_memory()
+    return {"facts": ven_context.show_memory()}

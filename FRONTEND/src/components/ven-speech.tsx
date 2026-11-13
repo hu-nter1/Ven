@@ -1,8 +1,10 @@
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Linking,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -11,9 +13,11 @@ import {
   TextInput,
   type ScrollViewInstance,
   View,
+  useWindowDimensions,
 } from 'react-native';
 
 import * as Speech from 'expo-speech';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
   ExpoSpeechRecognitionModule,
@@ -26,6 +30,7 @@ import {
 } from '../../modules/ven-background-listening';
 
 const API_URL = 'http://192.168.41.1:8000';
+const RECENT_CHATS_KEY = 'ven.recent-chats.v1';
 
 type ChatMessage = {
   id: number;
@@ -35,6 +40,24 @@ type ChatMessage = {
     title: string;
     url: string;
   };
+};
+
+type RecentChat = {
+  id: string;
+  title: string;
+  messages: ChatMessage[];
+  updatedAt: number;
+};
+
+type MemoryFact = {
+  subject?: string;
+  relation?: string;
+  action?: string;
+  object?: string | null;
+  negation?: boolean;
+  modality?: string | null;
+  source?: string;
+  original_sentence?: string;
 };
 
 type ChatResponse = {
@@ -53,6 +76,17 @@ export function VenSpeech({
   const [message, setMessage] = useState('VEN is ready.');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState('');
+  const [chatDrawerVisible, setChatDrawerVisible] = useState(false);
+  const [recentChats, setRecentChats] = useState<RecentChat[]>([]);
+  const [chatsLoaded, setChatsLoaded] = useState(false);
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [memoryVisible, setMemoryVisible] = useState(false);
+  const [memoryFacts, setMemoryFacts] = useState<MemoryFact[]>([]);
+  const [memoryLoading, setMemoryLoading] = useState(false);
+  const [memoryError, setMemoryError] = useState<string | null>(null);
+  const [memoryDeleting, setMemoryDeleting] = useState<number | null>(null);
+  const { width } = useWindowDimensions();
+  const wideLayout = width >= 760;
 
   const keepListening = useRef(false);
   const processing = useRef(false);
@@ -62,7 +96,96 @@ export function VenSpeech({
   const speechSequence = useRef(0);
   const speechStartTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messageId = useRef(0);
+  const newConversation = useRef(true);
   const scrollView = useRef<ScrollViewInstance | null>(null);
+  const recentChatsRef = useRef<RecentChat[]>([]);
+  const activeChatIdRef = useRef<string | null>(null);
+  const memoryDeleteInProgress = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void AsyncStorage.getItem(RECENT_CHATS_KEY)
+      .then(saved => {
+        if (cancelled) return;
+
+        const parsed: unknown = saved ? JSON.parse(saved) : [];
+        if (!Array.isArray(parsed)) {
+          throw new Error('Saved recent chats have an invalid format.');
+        }
+
+        const restored = parsed.filter(
+          (chat): chat is RecentChat =>
+            typeof chat?.id === 'string' &&
+            typeof chat?.title === 'string' &&
+            Array.isArray(chat?.messages) &&
+            typeof chat?.updatedAt === 'number'
+        );
+        recentChatsRef.current = restored;
+        setRecentChats(restored);
+
+        const latest = restored[0];
+        if (latest) {
+          activeChatIdRef.current = latest.id;
+          setActiveChatId(latest.id);
+          setMessages(latest.messages);
+          messageId.current = latest.messages.reduce(
+            (largest, item) => Math.max(largest, item.id),
+            0
+          );
+          newConversation.current = false;
+        }
+        setChatsLoaded(true);
+      })
+      .catch(error => {
+        if (cancelled) return;
+        console.error('Could not load VEN recent chats:', error);
+        setMessage('Could not load recent chats from this device.');
+        setChatsLoaded(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    activeChatIdRef.current = activeChatId;
+  }, [activeChatId]);
+
+  useEffect(() => {
+    if (!chatsLoaded || messages.length === 0) return;
+
+    const activeId = activeChatIdRef.current;
+    const chatId = activeId ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const previous = recentChatsRef.current.find(chat => chat.id === chatId);
+    const firstUserMessage = messages.find(item => item.sender === 'You');
+    const updatedChat: RecentChat = {
+      id: chatId,
+      title: previous?.title ?? firstUserMessage?.text.slice(0, 48) ?? 'New chat',
+      messages,
+      updatedAt: Date.now(),
+    };
+    const nextChats = [
+      updatedChat,
+      ...recentChatsRef.current.filter(chat => chat.id !== chatId),
+    ].slice(0, 50);
+
+    if (!activeId) {
+      activeChatIdRef.current = chatId;
+      setActiveChatId(chatId);
+    }
+    recentChatsRef.current = nextChats;
+    setRecentChats(nextChats);
+
+    void AsyncStorage.setItem(
+      RECENT_CHATS_KEY,
+      JSON.stringify(nextChats)
+    ).catch(error => {
+      console.error('Could not save VEN recent chats:', error);
+      setMessage('Could not save recent chats on this device.');
+    });
+  }, [chatsLoaded, messages]);
 
   const addMessage = (
     sender: 'You' | 'VEN',
@@ -166,6 +289,7 @@ export function VenSpeech({
         body: JSON.stringify({
           message: userMessage,
           local_hour: new Date().getHours(),
+          new_conversation: newConversation.current,
           conversation_history: messages.slice(-8).map(item => ({
             role: item.sender === 'You' ? 'user' : 'assistant',
             content: item.text,
@@ -178,6 +302,7 @@ export function VenSpeech({
       }
 
       const data: ChatResponse = await response.json();
+      newConversation.current = false;
 
       addMessage(
         'VEN',
@@ -293,6 +418,10 @@ export function VenSpeech({
   const sendTypedMessage = () => {
     const text = draft.trim();
 
+    if (!chatsLoaded) {
+      setMessage('Loading recent chats...');
+      return;
+    }
     if (!text || processing.current) return;
 
     setDraft('');
@@ -352,6 +481,11 @@ export function VenSpeech({
   });
 
   const startListening = async () => {
+    if (!chatsLoaded) {
+      setMessage('Loading recent chats...');
+      return;
+    }
+
     try {
       processing.current = false;
       keepListening.current = true;
@@ -422,214 +556,764 @@ export function VenSpeech({
     setMessage('VEN has stopped listening.');
   };
 
-  return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+  const clearCurrentChat = (action: 'new' | 'delete') => {
+    if (processing.current) {
+      Alert.alert(
+        'VEN is still responding',
+        'Wait for the current response to finish before changing chats.'
+      );
+      return;
+    }
+
+    const clear = () => {
+      setChatDrawerVisible(false);
+      speechSequence.current += 1;
+      clearSpeechStartTimeout();
+      void Speech.stop();
+      setMessages([]);
+      setDraft('');
+      messageId.current = 0;
+      const currentChatId = activeChatIdRef.current;
+      if (action === 'delete' && currentChatId) {
+        const remaining = recentChatsRef.current.filter(
+          chat => chat.id !== currentChatId
+        );
+        recentChatsRef.current = remaining;
+        setRecentChats(remaining);
+        void AsyncStorage.setItem(
+          RECENT_CHATS_KEY,
+          JSON.stringify(remaining)
+        ).catch(error => {
+          console.error('Could not delete VEN recent chat:', error);
+          setMessage('Could not delete this chat from this device.');
+        });
+      }
+      activeChatIdRef.current = null;
+      setActiveChatId(null);
+      newConversation.current = true;
+      setMessage(
+        keepListening.current
+          ? 'VEN is listening...'
+          : 'VEN is ready.'
+      );
+    };
+
+    if (messages.length === 0) {
+      clear();
+      return;
+    }
+
+    const isNewChat = action === 'new';
+    const title = isNewChat ? 'Start a new chat?' : 'Delete this chat?';
+    const description = isNewChat
+      ? 'Your current conversation will remain in Recent Chats.'
+      : 'This conversation will be removed from this device.';
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm(`${title}\n\n${description}`)) {
+        clear();
+      }
+      return;
+    }
+
+    Alert.alert(
+      title,
+      description,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: isNewChat ? 'New chat' : 'Delete chat',
+          style: 'destructive',
+          onPress: clear,
+        },
+      ]
+    );
+  };
+
+  const selectRecentChat = (chat: RecentChat) => {
+    if (processing.current || !chatsLoaded) return;
+
+    activeChatIdRef.current = chat.id;
+    setActiveChatId(chat.id);
+    setMessages(chat.messages);
+    messageId.current = chat.messages.reduce(
+      (largest, item) => Math.max(largest, item.id),
+      0
+    );
+    newConversation.current = false;
+    setDraft('');
+    setChatDrawerVisible(false);
+    setMessage(keepListening.current ? 'VEN is listening...' : 'VEN is ready.');
+  };
+
+  const openMemory = async () => {
+    setChatDrawerVisible(false);
+    setMemoryVisible(true);
+    setMemoryLoading(true);
+    setMemoryError(null);
+    try {
+      const response = await fetch(`${API_URL}/memory`);
+      if (!response.ok) {
+        throw new Error(`Memory request failed with status ${response.status}`);
+      }
+      const data: { facts?: MemoryFact[] } = await response.json();
+      if (!Array.isArray(data.facts)) {
+        throw new Error('Memory response was not a list of facts.');
+      }
+      setMemoryFacts(data.facts);
+    } catch (error) {
+      console.error('Could not load VEN memory:', error);
+      setMemoryError('Could not load VEN’s learned facts. Check the backend connection.');
+    } finally {
+      setMemoryLoading(false);
+    }
+  };
+
+  const forgetMemory = async (factIndex: number) => {
+    const forget = async () => {
+      if (memoryDeleteInProgress.current) return;
+      memoryDeleteInProgress.current = true;
+      setMemoryDeleting(factIndex);
+      try {
+        const response = await fetch(`${API_URL}/memory/${factIndex}`, {
+          method: 'DELETE',
+        });
+        if (!response.ok) {
+          throw new Error(`Memory delete failed with status ${response.status}`);
+        }
+        const data: { facts?: MemoryFact[] } = await response.json();
+        if (!Array.isArray(data.facts)) {
+          throw new Error('Memory response was not a list of facts.');
+        }
+        setMemoryFacts(data.facts);
+        setMemoryError(null);
+      } catch (error) {
+        console.error('Could not forget VEN memory:', error);
+        setMemoryError('Could not remove that fact. Please try again.');
+      } finally {
+        memoryDeleteInProgress.current = false;
+        setMemoryDeleting(null);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm('Forget this learned fact?')) {
+        await forget();
+      }
+      return;
+    }
+    Alert.alert('Forget this fact?', 'VEN will no longer remember it.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Forget', style: 'destructive', onPress: () => void forget() },
+    ]);
+  };
+
+  const describeFact = (fact: MemoryFact) => {
+    if (fact.source || fact.original_sentence) {
+      return fact.source ?? fact.original_sentence ?? '';
+    }
+    const relation = (fact.relation ?? fact.action ?? 'relates to').replaceAll('_', ' ');
+    const negation = fact.negation ? 'not ' : '';
+    return [fact.subject, negation + relation, fact.object]
+      .filter(Boolean)
+      .join(' ');
+  };
+
+  const composer = (
+    <View
+      style={[
+        styles.composer,
+        wideLayout && messages.length === 0 && styles.welcomeComposer,
+      ]}
     >
-      {/* Compact VEN header */}
-      <View style={styles.header}>
-        <View style={styles.identity}>
-          <View style={styles.avatarOuter}>
-            <View style={styles.avatarInner}>
-              <Text style={styles.avatarText}>V</Text>
-            </View>
-          </View>
-
-          <View style={styles.headerInfo}>
-            <Text style={styles.headerName}>VEN</Text>
-            <Text style={styles.headerSubtitle}>
-              PERSONAL INTELLIGENCE
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.connection}>
-          <View
-            style={[
-              styles.statusDot,
-              {
-                backgroundColor: listeningEnabled
-                  ? '#00FF9D'
-                  : '#687784',
-              },
-            ]}
-          />
-          <Text style={styles.connectionText}>
-            {recognizing ? 'ACTIVE' : 'READY'}
-          </Text>
-        </View>
+      <View style={styles.inputContainer}>
+        <TextInput
+          value={draft}
+          onChangeText={setDraft}
+          placeholder="How can I help you today?"
+          placeholderTextColor="#8B8B8B"
+          style={[
+            styles.textInput,
+            wideLayout && messages.length === 0 && styles.welcomeTextInput,
+          ]}
+          multiline
+          maxLength={2000}
+          editable={!processing.current && chatsLoaded}
+          returnKeyType="default"
+        />
+        {(!wideLayout || messages.length > 0) && (
+          <Text style={styles.inputHint}>MESSAGE VEN</Text>
+        )}
       </View>
 
-      {/* Full available conversation area */}
-      <ScrollView
-        ref={scrollView}
-        style={styles.chatArea}
-        contentContainerStyle={styles.chatContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        onContentSizeChange={() =>
-          scrollView.current?.scrollToEnd({ animated: true })
-        }
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Send message"
+        onPress={sendTypedMessage}
+        disabled={!draft.trim() || processing.current || !chatsLoaded}
+        style={({ pressed }) => [
+          styles.sendButton,
+          (!draft.trim() || processing.current || !chatsLoaded) &&
+            styles.sendButtonDisabled,
+          pressed && styles.buttonPressed,
+        ]}
       >
-        {messages.length === 0 && (
-          <View style={styles.welcome}>
-            <View style={styles.welcomeOrb}>
-              <Text style={styles.welcomeOrbText}>V</Text>
+        <Text style={styles.sendIcon}>↑</Text>
+      </Pressable>
+    </View>
+  );
+
+  const statusArea = (
+    <View style={styles.statusArea}>
+      <View style={styles.statusLine} />
+      <Text style={styles.statusText}>{message}</Text>
+      <View style={styles.statusLine} />
+    </View>
+  );
+
+  const voiceArea = (
+    <View style={styles.voiceArea}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{
+          disabled: !listeningEnabled && !chatsLoaded,
+        }}
+        disabled={!listeningEnabled && !chatsLoaded}
+        accessibilityLabel={
+          listeningEnabled
+            ? 'Stop listening'
+            : 'Start listening'
+        }
+        onPress={
+          listeningEnabled
+            ? stopListening
+            : startListening
+        }
+        style={({ pressed }) => [
+          styles.micButton,
+          !listeningEnabled && !chatsLoaded && styles.drawerActionDisabled,
+          listeningEnabled && styles.micButtonActive,
+          pressed && styles.buttonPressed,
+        ]}
+      >
+        <Text style={styles.micIcon}>
+          {listeningEnabled ? '■' : '🎙'}
+        </Text>
+      </Pressable>
+
+      <Text style={styles.micLabel}>
+        {listeningEnabled
+          ? 'VOICE LISTENING ACTIVE'
+          : 'TAP TO SPEAK TO VEN'}
+      </Text>
+    </View>
+  );
+
+  return (
+    <KeyboardAvoidingView
+      style={[styles.container, wideLayout && styles.wideContainer]}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <>
+        <View style={[styles.appShell, wideLayout && styles.wideAppShell]}>
+          {wideLayout && (
+            <View style={styles.sidebar}>
+              <View style={styles.sidebarBrand}>
+                <Text style={styles.sidebarBrandText}>VEN</Text>
+              </View>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Start a new chat"
+                accessibilityState={{ disabled: !chatsLoaded }}
+                onPress={() => clearCurrentChat('new')}
+                disabled={!chatsLoaded}
+                style={({ pressed }) => [
+                  styles.sidebarAction,
+                  !chatsLoaded && styles.drawerActionDisabled,
+                  pressed && styles.buttonPressed,
+                ]}
+              >
+                <Text style={styles.sidebarNewIcon}>+</Text>
+                <Text style={styles.sidebarActionText}>New chat</Text>
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Delete current chat"
+                accessibilityState={{ disabled: messages.length === 0 || !chatsLoaded }}
+                disabled={messages.length === 0 || !chatsLoaded}
+                onPress={() => clearCurrentChat('delete')}
+                style={({ pressed }) => [
+                  styles.sidebarAction,
+                  styles.sidebarDeleteAction,
+                  messages.length === 0 && styles.drawerActionDisabled,
+                  pressed && styles.buttonPressed,
+                ]}
+              >
+                <Text style={styles.sidebarDeleteIcon}>×</Text>
+                <Text style={styles.sidebarActionText}>Delete chat</Text>
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Open memory"
+                onPress={() => void openMemory()}
+                style={({ pressed }) => [
+                  styles.sidebarAction,
+                  pressed && styles.buttonPressed,
+                ]}
+              >
+                <Text style={styles.sidebarMemoryIcon}>✦</Text>
+                <Text style={styles.sidebarActionText}>Memory</Text>
+              </Pressable>
+
+              <Text style={styles.sidebarSectionTitle}>RECENT CHATS</Text>
+              <ScrollView
+                style={styles.sidebarChatList}
+                contentContainerStyle={styles.sidebarChatListContent}
+                showsVerticalScrollIndicator={false}
+              >
+                {recentChats.length === 0 ? (
+                  <Text style={styles.sidebarEmpty}>Your chats will appear here.</Text>
+                ) : (
+                  recentChats.map(chat => (
+                    <Pressable
+                      key={chat.id}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Open chat: ${chat.title}`}
+                      accessibilityState={{
+                        selected: activeChatId === chat.id,
+                        disabled: !chatsLoaded,
+                      }}
+                      onPress={() => selectRecentChat(chat)}
+                      disabled={!chatsLoaded}
+                      style={({ pressed }) => [
+                        styles.sidebarChat,
+                        activeChatId === chat.id && styles.sidebarChatSelected,
+                        pressed && styles.buttonPressed,
+                      ]}
+                    >
+                      <Text numberOfLines={1} style={styles.sidebarChatTitle}>
+                        {chat.title}
+                      </Text>
+                    </Pressable>
+                  ))
+                )}
+              </ScrollView>
+
+              <View style={styles.sidebarBottom}>
+                <View style={styles.connection}>
+                  <View
+                    style={[
+                      styles.statusDot,
+                      {
+                        backgroundColor: listeningEnabled
+                          ? '#00FF9D'
+                          : '#687784',
+                      },
+                    ]}
+                  />
+                  <Text style={styles.connectionText}>
+                    {recognizing ? 'ACTIVE' : 'READY'}
+                  </Text>
+                </View>
+                <Text style={styles.sidebarNote}>
+                  Chats are saved on this device.
+                </Text>
+              </View>
             </View>
+          )}
 
-            <Text style={styles.welcomeTitle}>
-              How can I help?
-            </Text>
+          <View style={styles.mainPane}>
+            {!wideLayout && (
+              <View style={styles.header}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Open chat menu"
+                  accessibilityState={{ expanded: chatDrawerVisible }}
+                  onPress={() => setChatDrawerVisible(true)}
+                  style={({ pressed }) => [
+                    styles.menuButton,
+                    pressed && styles.buttonPressed,
+                  ]}
+                >
+                  <Text style={styles.menuIcon}>☰</Text>
+                </Pressable>
 
-            <Text style={styles.welcomeDescription}>
-              I'm VEN. Ask me anything, share an idea,
-              or let's explore something together.
-            </Text>
+                <View style={styles.identity}>
+                  <View style={styles.avatarOuter}>
+                    <View style={styles.avatarInner}>
+                      <Text style={styles.avatarText}>V</Text>
+                    </View>
+                  </View>
 
-            <View style={styles.suggestion}>
-              <Text style={styles.suggestionLabel}>
-                START A CONVERSATION
-              </Text>
-              <Text style={styles.suggestionText}>
-                Type a message below or speak to me.
-              </Text>
-            </View>
-          </View>
-        )}
+                  <View style={styles.headerInfo}>
+                    <Text style={styles.headerName}>VEN</Text>
+                    <Text style={styles.headerSubtitle}>
+                      PERSONAL INTELLIGENCE
+                    </Text>
+                  </View>
+                </View>
 
-        {messages.map(item => (
-          <View
-            key={item.id}
-            style={[
-              styles.messageRow,
-              item.sender === 'You'
-                ? styles.userRow
-                : styles.venRow,
-            ]}
-          >
-            {item.sender === 'VEN' && (
-              <View style={styles.messageAvatar}>
-                <Text style={styles.messageAvatarText}>V</Text>
+                <View style={styles.headerActions}>
+                  <View style={styles.connection}>
+                    <View
+                      style={[
+                        styles.statusDot,
+                        {
+                          backgroundColor: listeningEnabled
+                            ? '#00FF9D'
+                            : '#687784',
+                        },
+                      ]}
+                    />
+                    <Text style={styles.connectionText}>
+                      {recognizing ? 'ACTIVE' : 'READY'}
+                    </Text>
+                  </View>
+                </View>
               </View>
             )}
 
-            <View
+            <ScrollView
+              ref={scrollView}
               style={[
-                styles.messageCard,
-                item.sender === 'You'
-                  ? styles.userCard
-                  : styles.venCard,
+                styles.chatArea,
+                wideLayout && styles.wideChatArea,
               ]}
+              contentContainerStyle={[
+                styles.chatContent,
+                wideLayout && styles.wideChatContent,
+              ]}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              onContentSizeChange={() =>
+                scrollView.current?.scrollToEnd({ animated: true })
+              }
             >
-              <Text
+              {messages.length === 0 && (
+                wideLayout ? (
+                  <View style={styles.desktopWelcome}>
+                    <View style={styles.desktopWelcomeHeading}>
+                      <View style={styles.desktopWelcomeMark}>
+                        <Text style={styles.desktopWelcomeMarkText}>✳</Text>
+                      </View>
+                      <Text style={styles.desktopWelcomeTitle}>
+                        Let’s talk
+                      </Text>
+                    </View>
+                    {composer}
+                    {statusArea}
+                    {voiceArea}
+                  </View>
+                ) : (
+                  <View style={styles.welcome}>
+                    <View style={styles.welcomeOrb}>
+                      <Text style={styles.welcomeOrbText}>V</Text>
+                    </View>
+
+                    <Text style={styles.welcomeTitle}>
+                      How can I help?
+                    </Text>
+
+                    <Text style={styles.welcomeDescription}>
+                      I'm VEN. Ask me anything, share an idea,
+                      or let's explore something together.
+                    </Text>
+
+                    <View style={styles.suggestion}>
+                      <Text style={styles.suggestionLabel}>
+                        START A CONVERSATION
+                      </Text>
+                      <Text style={styles.suggestionText}>
+                        Type a message below or speak to me.
+                      </Text>
+                    </View>
+                  </View>
+                )
+              )}
+
+              {messages.map(item => (
+                <View
+                  key={item.id}
+                  style={[
+                    styles.messageRow,
+                    item.sender === 'You'
+                      ? styles.userRow
+                      : styles.venRow,
+                    wideLayout && styles.wideMessageRow,
+                  ]}
+                >
+                  {item.sender === 'VEN' && (
+                    <View style={styles.messageAvatar}>
+                      <Text style={styles.messageAvatarText}>V</Text>
+                    </View>
+                  )}
+
+                  <View
+                    style={[
+                      styles.messageCard,
+                      item.sender === 'You'
+                        ? styles.userCard
+                        : styles.venCard,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.messageSender,
+                        item.sender === 'You'
+                          ? styles.userSender
+                          : styles.venSender,
+                      ]}
+                    >
+                      {item.sender === 'You' ? 'YOU' : 'VEN'}
+                    </Text>
+
+                    <Text style={styles.messageText}>
+                      {item.text}
+                    </Text>
+
+                    {item.source && (
+                      <Text
+                        accessibilityRole="link"
+                        onPress={() => {
+                          const sourceUrl = item.source?.url;
+                          if (sourceUrl) {
+                            void Linking.openURL(sourceUrl).catch(error => {
+                              console.error('Could not open VEN source:', error);
+                            });
+                          }
+                        }}
+                        style={styles.sourceLink}
+                      >
+                        Source: {item.source.title}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+
+            {(!wideLayout || messages.length > 0) && (
+              <View
                 style={[
-                  styles.messageSender,
-                  item.sender === 'You'
-                    ? styles.userSender
-                    : styles.venSender,
+                  styles.chatControls,
+                  wideLayout && styles.wideChatControls,
                 ]}
               >
-                {item.sender === 'You' ? 'YOU' : 'VEN'}
-              </Text>
+                {statusArea}
+                {composer}
+                {voiceArea}
+              </View>
+            )}
+          </View>
+        </View>
 
-              <Text style={styles.messageText}>
-                {item.text}
-              </Text>
+        <Modal
+        visible={chatDrawerVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setChatDrawerVisible(false)}
+      >
+        <View style={styles.drawerOverlay}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close chat menu"
+            style={styles.drawerBackdrop}
+            onPress={() => setChatDrawerVisible(false)}
+          />
+          <View
+            accessibilityViewIsModal
+            style={styles.drawerPanel}
+          >
+            <View style={styles.drawerHeader}>
+              <Text style={styles.drawerTitle}>CHAT MENU</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Close chat menu"
+                onPress={() => setChatDrawerVisible(false)}
+                style={({ pressed }) => [
+                  styles.drawerCloseButton,
+                  pressed && styles.buttonPressed,
+                ]}
+              >
+                <Text style={styles.drawerCloseIcon}>×</Text>
+              </Pressable>
+            </View>
 
-              {item.source && (
-                <Text
-                  accessibilityRole="link"
-                  onPress={() => {
-                    const sourceUrl = item.source?.url;
-                    if (sourceUrl) {
-                      void Linking.openURL(sourceUrl).catch(error => {
-                        console.error('Could not open VEN source:', error);
-                      });
-                    }
-                  }}
-                  style={styles.sourceLink}
-                >
-                  Source: {item.source.title}
+            <Text style={styles.drawerDescription}>
+              Manage this conversation
+            </Text>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Start a new chat"
+              accessibilityState={{ disabled: !chatsLoaded }}
+              onPress={() => clearCurrentChat('new')}
+              disabled={!chatsLoaded}
+              style={({ pressed }) => [
+                styles.drawerAction,
+                !chatsLoaded && styles.drawerActionDisabled,
+                pressed && styles.buttonPressed,
+              ]}
+            >
+              <Text style={styles.drawerActionIcon}>+</Text>
+              <View style={styles.drawerActionText}>
+                <Text style={styles.drawerActionTitle}>New chat</Text>
+                <Text style={styles.drawerActionDescription}>
+                  Start a fresh conversation
                 </Text>
+              </View>
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Delete current chat"
+              accessibilityState={{ disabled: messages.length === 0 || !chatsLoaded }}
+              disabled={messages.length === 0 || !chatsLoaded}
+              onPress={() => clearCurrentChat('delete')}
+              style={({ pressed }) => [
+                styles.drawerAction,
+                styles.drawerDeleteAction,
+                messages.length === 0 && styles.drawerActionDisabled,
+                pressed && styles.buttonPressed,
+              ]}
+            >
+              <Text style={styles.drawerDeleteIcon}>×</Text>
+              <View style={styles.drawerActionText}>
+                <Text style={styles.drawerDeleteTitle}>Delete chat</Text>
+                <Text style={styles.drawerActionDescription}>
+                  Clear this conversation
+                </Text>
+              </View>
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Open memory"
+              onPress={() => void openMemory()}
+              style={({ pressed }) => [
+                styles.drawerAction,
+                pressed && styles.buttonPressed,
+              ]}
+            >
+              <Text style={styles.drawerActionIcon}>✦</Text>
+              <View style={styles.drawerActionText}>
+                <Text style={styles.drawerActionTitle}>Memory</Text>
+                <Text style={styles.drawerActionDescription}>
+                  Review or forget learned facts
+                </Text>
+              </View>
+            </Pressable>
+
+            <Text style={styles.drawerSectionTitle}>RECENT CHATS</Text>
+            <ScrollView
+              style={styles.drawerChatList}
+              contentContainerStyle={styles.drawerChatListContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {recentChats.length === 0 ? (
+                <Text style={styles.drawerEmpty}>Your chats will appear here.</Text>
+              ) : (
+                recentChats.map(chat => (
+                  <Pressable
+                    key={chat.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Open chat: ${chat.title}`}
+                    accessibilityState={{
+                      selected: activeChatId === chat.id,
+                      disabled: !chatsLoaded,
+                    }}
+                    onPress={() => selectRecentChat(chat)}
+                    disabled={!chatsLoaded}
+                    style={({ pressed }) => [
+                      styles.drawerChat,
+                      activeChatId === chat.id && styles.drawerChatSelected,
+                      pressed && styles.buttonPressed,
+                    ]}
+                  >
+                    <Text numberOfLines={1} style={styles.drawerChatTitle}>
+                      {chat.title}
+                    </Text>
+                  </Pressable>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+        </Modal>
+
+        <Modal
+          visible={memoryVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setMemoryVisible(false)}
+        >
+          <View style={styles.memoryOverlay}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Close memory"
+              style={styles.memoryBackdrop}
+              onPress={() => setMemoryVisible(false)}
+            />
+            <View accessibilityViewIsModal style={styles.memoryPanel}>
+              <View style={styles.drawerHeader}>
+                <Text style={styles.drawerTitle}>VEN’S MEMORY</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Close memory"
+                  onPress={() => setMemoryVisible(false)}
+                  style={({ pressed }) => [
+                    styles.drawerCloseButton,
+                    pressed && styles.buttonPressed,
+                  ]}
+                >
+                  <Text style={styles.drawerCloseIcon}>×</Text>
+                </Pressable>
+              </View>
+              <Text style={styles.memoryDescription}>
+                Facts VEN has learned from your conversations.
+              </Text>
+              {memoryLoading ? (
+                <Text style={styles.memoryState}>Loading memory…</Text>
+              ) : memoryError ? (
+                <Text accessibilityRole="alert" style={styles.memoryError}>
+                  {memoryError}
+                </Text>
+              ) : memoryFacts.length === 0 ? (
+                <Text style={styles.memoryState}>VEN has not saved any facts yet.</Text>
+              ) : (
+                <ScrollView
+                  style={styles.memoryFacts}
+                  contentContainerStyle={styles.memoryFactsContent}
+                  showsVerticalScrollIndicator
+                >
+                  {memoryFacts.map((fact, index) => (
+                    <View key={`${index}-${describeFact(fact)}`} style={styles.memoryFact}>
+                      <Text style={styles.memoryFactText}>{describeFact(fact)}</Text>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Forget ${describeFact(fact)}`}
+                        onPress={() => void forgetMemory(index)}
+                        disabled={memoryDeleting !== null}
+                        style={({ pressed }) => [
+                          styles.memoryForgetButton,
+                          memoryDeleting !== null && styles.drawerActionDisabled,
+                          pressed && styles.buttonPressed,
+                        ]}
+                      >
+                        <Text style={styles.memoryForgetText}>
+                          {memoryDeleting === index ? 'Forgetting…' : 'Forget'}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  ))}
+                </ScrollView>
               )}
             </View>
           </View>
-        ))}
-      </ScrollView>
-
-      {/* Status */}
-      <View style={styles.statusArea}>
-        <View style={styles.statusLine} />
-        <Text style={styles.statusText}>{message}</Text>
-        <View style={styles.statusLine} />
-      </View>
-
-      {/* Typing area */}
-      <View style={styles.composer}>
-        <View style={styles.inputContainer}>
-          <TextInput
-            value={draft}
-            onChangeText={setDraft}
-            placeholder="Message VEN..."
-            placeholderTextColor="#718391"
-            style={styles.textInput}
-            multiline
-            maxLength={2000}
-            editable={!processing.current}
-            returnKeyType="default"
-          />
-
-          <Text style={styles.inputHint}>MESSAGE VEN</Text>
-        </View>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Send message"
-          onPress={sendTypedMessage}
-          disabled={!draft.trim() || processing.current}
-          style={({ pressed }) => [
-            styles.sendButton,
-            (!draft.trim() || processing.current) &&
-              styles.sendButtonDisabled,
-            pressed && styles.buttonPressed,
-          ]}
-        >
-          <Text style={styles.sendIcon}>↑</Text>
-        </Pressable>
-      </View>
-
-      {/* Voice controls */}
-      <View style={styles.voiceArea}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={
-            listeningEnabled
-              ? 'Stop listening'
-              : 'Start listening'
-          }
-          onPress={
-            listeningEnabled
-              ? stopListening
-              : startListening
-          }
-          style={({ pressed }) => [
-            styles.micButton,
-            listeningEnabled && styles.micButtonActive,
-            pressed && styles.buttonPressed,
-          ]}
-        >
-          <Text style={styles.micIcon}>
-            {listeningEnabled ? '■' : '🎙'}
-          </Text>
-        </Pressable>
-
-        <Text style={styles.micLabel}>
-          {listeningEnabled
-            ? 'VOICE LISTENING ACTIVE'
-            : 'TAP TO SPEAK TO VEN'}
-        </Text>
-      </View>
+        </Modal>
+      </>
     </KeyboardAvoidingView>
   );
 }
@@ -642,6 +1326,149 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     paddingTop: 4,
     paddingBottom: 4,
+    backgroundColor: 'transparent',
+  },
+
+  wideContainer: {
+    paddingTop: 0,
+    paddingBottom: 0,
+  },
+
+  appShell: {
+    flex: 1,
+    minHeight: 0,
+    width: '100%',
+  },
+
+  wideAppShell: {
+    flexDirection: 'row',
+  },
+
+  sidebar: {
+    width: 255,
+    minHeight: 0,
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    paddingBottom: 20,
+    backgroundColor: 'rgba(8, 12, 18, 0.88)',
+    borderRightWidth: 1,
+    borderColor: 'rgba(210, 225, 238, 0.12)',
+  },
+
+  sidebarBrand: {
+    height: 54,
+    justifyContent: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 8,
+  },
+
+  sidebarBrandText: {
+    color: '#F3F7FA',
+    fontSize: 26,
+    fontWeight: '600',
+    letterSpacing: 3,
+  },
+
+  sidebarAction: {
+    minHeight: 46,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    marginBottom: 9,
+    borderRadius: 9,
+    backgroundColor: 'rgba(0, 217, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 217, 255, 0.23)',
+  },
+
+  sidebarDeleteAction: {
+    backgroundColor: 'rgba(255, 88, 104, 0.07)',
+    borderColor: 'rgba(255, 115, 128, 0.2)',
+  },
+
+  sidebarNewIcon: {
+    width: 25,
+    color: '#53E6FF',
+    fontSize: 23,
+    fontWeight: '500',
+  },
+
+  sidebarDeleteIcon: {
+    width: 25,
+    color: '#FF8791',
+    fontSize: 23,
+  },
+
+  sidebarActionText: {
+    color: '#E4EDF2',
+    fontSize: 14,
+  },
+
+  sidebarMemoryIcon: {
+    width: 25,
+    color: '#53E6FF',
+    fontSize: 18,
+  },
+
+  sidebarSectionTitle: {
+    color: '#8195A2',
+    fontSize: 10,
+    letterSpacing: 1.2,
+    marginTop: 16,
+    marginBottom: 8,
+    paddingHorizontal: 8,
+  },
+
+  sidebarChatList: {
+    flex: 1,
+    minHeight: 0,
+  },
+
+  sidebarChatListContent: {
+    paddingBottom: 8,
+  },
+
+  sidebarChat: {
+    minHeight: 38,
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    borderRadius: 7,
+  },
+
+  sidebarChatSelected: {
+    backgroundColor: 'rgba(0, 217, 255, 0.12)',
+  },
+
+  sidebarChatTitle: {
+    color: '#CFDCE3',
+    fontSize: 12,
+  },
+
+  sidebarEmpty: {
+    color: '#8195A2',
+    fontSize: 12,
+    lineHeight: 18,
+    paddingHorizontal: 8,
+  },
+
+  sidebarBottom: {
+    marginTop: 'auto',
+    paddingTop: 18,
+    borderTopWidth: 1,
+    borderColor: 'rgba(210, 225, 238, 0.12)',
+  },
+
+  sidebarNote: {
+    color: '#8195A2',
+    fontSize: 11,
+    lineHeight: 17,
+    marginTop: 12,
+  },
+
+  mainPane: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 0,
     backgroundColor: 'transparent',
   },
 
@@ -712,6 +1539,266 @@ const styles = StyleSheet.create({
     gap: 7,
   },
 
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+
+  menuButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 217, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 217, 255, 0.4)',
+  },
+
+  menuIcon: {
+    color: '#00D9FF',
+    fontSize: 18,
+  },
+
+  drawerOverlay: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: 'rgba(0, 0, 0, 0.58)',
+  },
+
+  drawerBackdrop: {
+    ...StyleSheet.absoluteFill,
+  },
+
+  drawerPanel: {
+    width: 290,
+    maxWidth: '84%',
+    height: '100%',
+    paddingHorizontal: 18,
+    paddingTop: 22,
+    backgroundColor: '#071A28',
+    borderRightWidth: 1,
+    borderColor: 'rgba(0, 217, 255, 0.35)',
+    elevation: 18,
+  },
+
+  drawerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  drawerTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: 'bold',
+    letterSpacing: 1.5,
+  },
+
+  drawerCloseButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+
+  drawerCloseIcon: {
+    color: '#C4D6E0',
+    fontSize: 23,
+    lineHeight: 25,
+  },
+
+  drawerDescription: {
+    color: '#8EA7B5',
+    fontSize: 12,
+    marginTop: 4,
+    marginBottom: 22,
+  },
+
+  drawerAction: {
+    minHeight: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    marginBottom: 10,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 217, 255, 0.09)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 217, 255, 0.3)',
+  },
+
+  drawerDeleteAction: {
+    backgroundColor: 'rgba(255, 88, 104, 0.08)',
+    borderColor: 'rgba(255, 115, 128, 0.3)',
+  },
+
+  drawerActionDisabled: {
+    opacity: 0.4,
+  },
+
+  drawerActionIcon: {
+    width: 28,
+    color: '#00D9FF',
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+
+  drawerDeleteIcon: {
+    width: 28,
+    color: '#FF8791',
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+
+  drawerActionText: {
+    flex: 1,
+  },
+
+  drawerActionTitle: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  drawerDeleteTitle: {
+    color: '#FF9AA3',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  drawerActionDescription: {
+    color: '#8EA7B5',
+    fontSize: 11,
+    marginTop: 4,
+  },
+
+  drawerSectionTitle: {
+    color: '#8195A2',
+    fontSize: 10,
+    letterSpacing: 1.2,
+    marginTop: 12,
+    marginBottom: 6,
+  },
+
+  drawerChatList: {
+    flex: 1,
+    minHeight: 0,
+  },
+
+  drawerChatListContent: {
+    paddingBottom: 14,
+  },
+
+  drawerChat: {
+    minHeight: 42,
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
+
+  drawerChatSelected: {
+    backgroundColor: 'rgba(0, 217, 255, 0.12)',
+  },
+
+  drawerChatTitle: {
+    color: '#DCE8EE',
+    fontSize: 12,
+  },
+
+  drawerEmpty: {
+    color: '#8EA7B5',
+    fontSize: 12,
+    lineHeight: 18,
+    paddingVertical: 8,
+  },
+
+  memoryOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 18,
+    backgroundColor: 'rgba(0, 0, 0, 0.62)',
+  },
+
+  memoryBackdrop: {
+    ...StyleSheet.absoluteFill,
+  },
+
+  memoryPanel: {
+    width: '100%',
+    maxWidth: 520,
+    maxHeight: '82%',
+    minHeight: 210,
+    padding: 20,
+    borderRadius: 16,
+    backgroundColor: '#071A28',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 217, 255, 0.35)',
+    elevation: 18,
+  },
+
+  memoryDescription: {
+    color: '#8EA7B5',
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 8,
+    marginBottom: 10,
+  },
+
+  memoryState: {
+    color: '#B9C9D1',
+    fontSize: 13,
+    lineHeight: 20,
+    paddingVertical: 18,
+  },
+
+  memoryError: {
+    color: '#FF9AA3',
+    fontSize: 13,
+    lineHeight: 20,
+    paddingVertical: 18,
+  },
+
+  memoryFacts: {
+    flexShrink: 1,
+  },
+
+  memoryFactsContent: {
+    paddingBottom: 8,
+  },
+
+  memoryFact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderColor: 'rgba(210, 225, 238, 0.1)',
+  },
+
+  memoryFactText: {
+    flex: 1,
+    color: '#E4EDF2',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+
+  memoryForgetButton: {
+    marginLeft: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 7,
+    backgroundColor: 'rgba(255, 88, 104, 0.12)',
+  },
+
+  memoryForgetText: {
+    color: '#FF9AA3',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+
   statusDot: {
     width: 7,
     height: 7,
@@ -731,11 +1818,67 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(5, 17, 29, 0.55)',
   },
 
+  wideChatArea: {
+    backgroundColor: 'rgba(14, 16, 20, 0.56)',
+  },
+
   chatContent: {
     flexGrow: 1,
     paddingHorizontal: 15,
     paddingTop: 18,
     paddingBottom: 25,
+  },
+
+  wideChatContent: {
+    flexGrow: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 42,
+    paddingTop: 32,
+    paddingBottom: 28,
+  },
+
+  desktopWelcome: {
+    flexGrow: 1,
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
+    justifyContent: 'center',
+    paddingVertical: 28,
+  },
+
+  desktopWelcomeHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 34,
+  },
+
+  desktopWelcomeMark: {
+    width: 42,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+
+  desktopWelcomeMarkText: {
+    color: '#42DFF5',
+    fontSize: 43,
+    lineHeight: 48,
+  },
+
+  desktopWelcomeTitle: {
+    color: '#F2F5F7',
+    fontSize: 42,
+    fontWeight: '400',
+    letterSpacing: -1,
+  },
+
+  wideMessageRow: {
+    width: '100%',
+    maxWidth: 900,
+    alignSelf: 'center',
   },
 
   welcome: {
@@ -917,6 +2060,27 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
 
+  welcomeComposer: {
+    minHeight: 112,
+    alignItems: 'flex-end',
+    padding: 11,
+    backgroundColor: 'rgba(37, 40, 45, 0.82)',
+    borderColor: 'rgba(220, 232, 240, 0.19)',
+    borderRadius: 17,
+  },
+
+  chatControls: {
+    width: '100%',
+  },
+
+  wideChatControls: {
+    width: '100%',
+    maxWidth: 900,
+    alignSelf: 'center',
+    paddingHorizontal: 42,
+    paddingBottom: 10,
+  },
+
   inputContainer: {
     flex: 1,
     minHeight: 47,
@@ -934,6 +2098,11 @@ const styles = StyleSheet.create({
     textAlignVertical: 'center',
   },
 
+  welcomeTextInput: {
+    minHeight: 82,
+    textAlignVertical: 'top',
+    paddingTop: 4,
+  },
   inputHint: {
     color: '#536E7D',
     fontSize: 8,

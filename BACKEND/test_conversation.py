@@ -62,6 +62,55 @@ class ConversationTests(unittest.TestCase):
         self.assertIn("Ada Lovelace was a mathematician.", clarified)
         self.assertIn("haven't replied", without_history)
 
+    def test_affirmative_reply_continues_the_previous_question(self):
+        prompt = (
+            "Good morning! Great to chat with you this morning. "
+            "Anything you'd like to dive into?"
+        )
+
+        reply = self.brain.think(
+            "yes",
+            conversation_history=[
+                {"role": "assistant", "content": prompt},
+            ],
+        )
+
+        self.assertTrue(
+            any(phrase in reply.lower() for phrase in ("what", "where"))
+        )
+        self.assertNotIn("affirmative", reply.lower())
+
+    def test_standalone_affirmation_is_not_defined_as_a_word(self):
+        reply = self.brain.think("yes")
+
+        self.assertNotIn("noun", reply.lower())
+        self.assertNotIn("affirmative", reply.lower())
+        self.assertIn("what", reply.lower())
+
+    def test_corrects_high_confidence_spelling_errors_before_interpretation(self):
+        self.assertEqual(
+            self.brain.correct_message("I am nt oky"),
+            "I am not okay",
+        )
+        self.assertEqual(
+            self.brain.correct_message("That is a quikc test"),
+            "That is a quick test",
+        )
+
+        corrected = self.brain.correct_message("I am nt oky")
+        with tempfile.TemporaryDirectory() as directory:
+            context = VENContext(
+                VENSemanticEngine(),
+                Path(directory) / "memory.json",
+            )
+            result = context.process(corrected)
+
+        reply = self.brain.response_engine.respond_to_statement(
+            corrected,
+            result,
+        )
+        self.assertIn("not feeling okay", reply.lower())
+
     def test_greetings_use_the_phone_local_time_of_day(self):
         expected = {
             7: "Good morning!",

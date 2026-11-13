@@ -3,10 +3,29 @@ import json
 import re
 from pathlib import Path
 
+from spacy.lang.en.stop_words import STOP_WORDS
+
 from response_engine import VENResponseEngine
 
 
 class VENBrain:
+    COMMON_SPELLING_FIXES = {
+        "dont": "don't",
+        "doesnt": "doesn't",
+        "didnt": "didn't",
+        "isnt": "isn't",
+        "arent": "aren't",
+        "wasnt": "wasn't",
+        "werent": "weren't",
+        "wont": "won't",
+        "cant": "can't",
+        "couldnt": "couldn't",
+        "wouldnt": "wouldn't",
+        "shouldnt": "shouldn't",
+        "nt": "not",
+        "oky": "okay",
+        "teh": "the",
+    }
 
     def __init__(self, response_engine=None):
         self.name = "VEN"
@@ -23,6 +42,15 @@ class VENBrain:
             for item in words
             if isinstance(item, dict) and item.get("word")
         }
+        self.vocabulary_rank = {
+            item["word"].lower(): index
+            for index, item in enumerate(words)
+            if isinstance(item, dict) and item.get("word")
+        }
+        self.words_by_length = {}
+        for word in self.vocabulary:
+            if word.isalpha() and len(word) >= 3:
+                self.words_by_length.setdefault(len(word), []).append(word)
 
         print(f"VEN loaded {len(self.vocabulary)} words.")
 
@@ -97,6 +125,105 @@ class VENBrain:
     def contains_phrase(self, message, phrase):
         pattern = r"(?<!\w)" + re.escape(phrase) + r"(?!\w)"
         return re.search(pattern, message) is not None
+
+    @staticmethod
+    def edit_distance(first, second, limit):
+        if abs(len(first) - len(second)) > limit:
+            return limit + 1
+
+        previous_previous = None
+        previous = list(range(len(second) + 1))
+        for first_index, first_char in enumerate(first, start=1):
+            current = [first_index]
+            row_minimum = first_index
+            for second_index, second_char in enumerate(second, start=1):
+                distance = min(
+                    current[second_index - 1] + 1,
+                    previous[second_index] + 1,
+                    previous[second_index - 1]
+                    + (first_char != second_char),
+                )
+                if (
+                    previous_previous is not None
+                    and first_index > 1
+                    and second_index > 1
+                    and first_char == second[second_index - 2]
+                    and first[first_index - 2] == second_char
+                ):
+                    distance = min(
+                        distance,
+                        previous_previous[second_index - 2] + 1,
+                    )
+                current.append(distance)
+                row_minimum = min(row_minimum, distance)
+            if row_minimum > limit:
+                return limit + 1
+            previous_previous, previous = previous, current
+
+        return previous[-1]
+
+    @staticmethod
+    def preserve_case(original, replacement):
+        if original.isupper():
+            return replacement.upper()
+        if original.istitle():
+            return replacement.capitalize()
+        return replacement
+
+    def correct_word(self, word):
+        normalized = word.lower()
+        if normalized == "nt":
+            return self.preserve_case(word, "not")
+        if normalized in STOP_WORDS:
+            return word
+        if normalized in self.vocabulary:
+            return word
+        replacement = self.COMMON_SPELLING_FIXES.get(normalized)
+        if replacement:
+            return self.preserve_case(word, replacement)
+        if not normalized.isalpha() or len(normalized) < 3:
+            return word
+
+        max_distance = 1 if len(normalized) <= 5 else 2
+        candidates = []
+        for length in range(
+            max(3, len(normalized) - max_distance),
+            len(normalized) + max_distance + 1,
+        ):
+            for candidate in self.words_by_length.get(length, ()):
+                distance = self.edit_distance(
+                    normalized,
+                    candidate,
+                    max_distance,
+                )
+                if distance <= max_distance:
+                    candidates.append(
+                        (distance, self.vocabulary_rank[candidate], candidate)
+                    )
+        if not candidates:
+            return word
+
+        candidates.sort()
+        best_distance, best_rank, best_candidate = candidates[0]
+        if best_rank > 10_000:
+            return word
+
+        equally_close = [
+            rank
+            for distance, rank, _ in candidates
+            if distance == best_distance and rank != best_rank
+        ]
+        if equally_close and best_rank * 2 >= min(equally_close):
+            return word
+
+        return self.preserve_case(word, best_candidate)
+
+    def correct_message(self, message):
+        return re.sub(
+            r"[A-Za-z']+",
+            lambda match: self.correct_word(match.group()),
+            message,
+        )
 
     def explain_word(self, word, request_type):
 
@@ -193,7 +320,7 @@ class VENBrain:
 
     def think(self, message, local_hour=None, conversation_history=None):
 
-        message = self.normalize(message)
+        message = self.normalize(self.correct_message(message))
 
         if not message:
             return "You haven't said anything yet."
@@ -236,6 +363,18 @@ class VENBrain:
         return None
 
     def respond_to_follow_up(self, message, conversation_history):
+        affirmative_patterns = (
+            r"yes",
+            r"yeah",
+            r"yep",
+            r"yup",
+            r"sure",
+            r"okay",
+            r"ok",
+            r"of course",
+            r"yes please",
+            r"sure thing",
+        )
         repeat_patterns = (
             r"what did you (?:just )?say",
             r"what was that",
@@ -255,22 +394,51 @@ class VENBrain:
             re.fullmatch(pattern, message)
             for pattern in repeat_patterns
         )
+        is_affirmative = any(
+            re.fullmatch(pattern, message)
+            for pattern in affirmative_patterns
+        )
         is_clarification = any(
             re.fullmatch(pattern, message)
             for pattern in clarify_patterns
         )
-        if not is_repeat and not is_clarification:
+        if not is_repeat and not is_clarification and not is_affirmative:
             return None
 
-        previous_reply = next(
+        latest_turn = next(
             (
-                turn.get("content", "").strip()
+                turn
                 for turn in reversed(conversation_history)
-                if turn.get("role") == "assistant"
-                and turn.get("content", "").strip()
+                if turn.get("content", "").strip()
             ),
             None,
         )
+        previous_reply = (
+            latest_turn.get("content", "").strip()
+            if latest_turn and latest_turn.get("role") == "assistant"
+            else None
+        )
+        if is_affirmative:
+            if previous_reply and previous_reply.endswith("?"):
+                return self.response_engine.choose_response(
+                    "affirmative_follow_up",
+                    [
+                        "Great! What would you like to dive into?",
+                        "Sure—what would you like to talk about?",
+                        "Absolutely. What do you have in mind?",
+                        "Okay, I'm listening. Where shall we start?",
+                        "Lovely. What would you like to explore?",
+                    ],
+                )
+            return self.response_engine.choose_response(
+                "standalone_affirmative",
+                [
+                    "Okay! What would you like to talk about?",
+                    "Sure—what's on your mind?",
+                    "All right. What can I help you with?",
+                ],
+            )
+
         if not previous_reply:
             return self.response_engine.choose_response(
                 "missing_conversation_context",

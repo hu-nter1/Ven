@@ -19,7 +19,7 @@ Expo app (FRONTEND)
           └── expo-speech reads reply aloud
 ```
 
-The frontend owns speech capture, conversation display, and text-to-speech. It sends up to eight recent turns with each request so `VENBrain` can handle repeat and clarification follow-ups without misrouting them to web search; the backend does not persist this history. `VENBrain` handles vocabulary questions and conversational intents; `VENResponseEngine` composes varied rule-based replies from interpreted statements and combines greeting variations across time periods. Local facts come from `common_facts.json` and explicit learned statements in `ven_memory.json`; questions are not saved as facts. If local knowledge cannot answer an information request, the backend tries Bing's public RSS search, a DuckDuckGo instant answer, and then Wikipedia, returning the selected excerpt and citation. Search terms preserve important word forms, and results need to match multiple query terms when the query contains more than one. Results are cached in `ven_web_cache.json`. No hosted generative-AI model or search API key is used.
+The frontend owns speech capture, conversation display, and text-to-speech. It saves up to 50 recent conversations on-device with AsyncStorage and sends up to eight recent turns with each request so `VENBrain` can handle repeat, clarification, and affirmative follow-ups; the backend does not persist chat history. Before routing a turn, `VENBrain` corrects a small set of common speech-recognition contractions and high-confidence misspellings using the vocabulary, while protecting common English function words and leaving ambiguous or uncommon candidates unchanged. `VENBrain` also handles vocabulary questions and conversational intents; `VENResponseEngine` composes varied rule-based replies from interpreted statements and combines greeting variations across time periods. Local facts come from `common_facts.json` and explicit learned statements in `ven_memory.json`; questions are not saved as facts. The drawer's Memory view reads and deletes these learned facts through the memory API. If local knowledge cannot answer an information request, the backend tries Bing's public RSS search, a DuckDuckGo instant answer, and then Wikipedia, returning the selected excerpt and citation. Search terms preserve important word forms, and results need to match multiple query terms when the query contains more than one. Results are cached in `ven_web_cache.json`. No hosted generative-AI model or search API key is used.
 
 ## Requirements
 
@@ -64,6 +64,8 @@ For a physical device, bind the backend to `0.0.0.0`, keep both devices on the s
 
 - `src/app/` — Expo Router routes. `index.tsx` composes the home screen, while `explore.tsx` is still starter/template content.
 - `src/components/ven-speech.tsx` — microphone control, speech-recognition event handling, chat UI, API request, and spoken reply.
+- Recent chats are persisted in the browser/app's local AsyncStorage store under `ven.recent-chats.v1`; they are not synchronized to the backend. The drawer can switch among saved chats, start a fresh chat, and delete the active chat.
+- The drawer's Memory view uses the backend memory endpoints to review facts in `ven_memory.json` and forget selected facts. Memory access requires the API to be running.
 - `src/components/ven-sky-background.tsx` and `ven-avatar.tsx` — home-screen media.
 - `src/components/app-tabs.tsx` and `app-tabs.web.tsx` — platform-specific tab navigation.
 - `app.json` — app identity, platform permissions, and native plugins.
@@ -127,7 +129,9 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 The API is defined in `main.py`:
 
 - `GET /` — health/status response.
-- `POST /chat` — accepts `{"message": "..."}`, an optional device-local `local_hour` from 0 to 23, and up to eight optional `conversation_history` turns (`role` is `user` or `assistant`, with a `content` string). The mobile app sends its local hour for time-aware greetings and recent turns for contextual follow-ups. History is request context only and is not persisted. It returns `{"reply": "..."}`, optionally with `source_title` and `source_url` for web-backed answers.
+- `POST /chat` — accepts `{"message": "..."}`, an optional device-local `local_hour` from 0 to 23, an optional `new_conversation` flag, and up to eight optional `conversation_history` turns (`role` is `user` or `assistant`, with a `content` string). The mobile app sends its local hour for time-aware greetings and recent turns for contextual follow-ups. Starting a new conversation resets the vocabulary follow-up topic; history is request context only and is not persisted. It returns `{"reply": "..."}`, optionally with `source_title` and `source_url` for web-backed answers.
+- `GET /memory` — returns learned facts as `{"facts": [...]}`.
+- `DELETE /memory/{fact_index}` — forgets the fact at that zero-based index and returns the remaining facts. It returns 404 if the index is not present.
 
 For example:
 

@@ -138,11 +138,32 @@ class VENResponseEngine:
             )
 
         if proposition.get("negation"):
+            if relation == "has_property" and subject in (
+                "i",
+                "me",
+                "myself",
+            ):
+                return self.choose_response(
+                    "negative_personal_property",
+                    [
+                        f"I'm sorry you're not feeling {object_word}. Want to tell me what's going on?",
+                        f"I hear that you're not feeling {object_word}. What has been happening?",
+                        f"That sounds hard. What's making you feel not {object_word}?",
+                    ],
+                )
+            if relation == "has_property":
+                return self.choose_response(
+                    "negative_property",
+                    [
+                        f"So {subject} isn't {object_word}. What makes you say that?",
+                        f"I hear you saying {subject} is not {object_word}. Can you tell me more?",
+                    ],
+                )
             return self.choose_response(
                 "negative_statement",
                 [
-                    f"So you don't {relation} {object_word}. What shaped that view?",
-                    f"I hear you saying you don't {relation} {object_word}. Want to tell me more?",
+                    f"So you don't {relation.replace('_', ' ')} {object_word}. What shaped that view?",
+                    f"I hear you saying you don't {relation.replace('_', ' ')} {object_word}. Want to tell me more?",
                 ],
             )
 
