@@ -1,16 +1,16 @@
 -- Merging decision tree log ---
 manifest
-ADDED from /home/king/Ven/FRONTEND/modules/ven-background-listening/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest13036430031847556103.xml:2:13-83
-INJECTED from /home/king/Ven/FRONTEND/modules/ven-background-listening/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest13036430031847556103.xml:2:13-83
+ADDED from /home/king/Ven/FRONTEND/modules/ven-background-listening/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest14705239805827742672.xml:2:13-83
+INJECTED from /home/king/Ven/FRONTEND/modules/ven-background-listening/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest14705239805827742672.xml:2:13-83
 	package
-		INJECTED from /home/king/Ven/FRONTEND/modules/ven-background-listening/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest13036430031847556103.xml
+		INJECTED from /home/king/Ven/FRONTEND/modules/ven-background-listening/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest14705239805827742672.xml
 	xmlns:android
-		ADDED from /home/king/Ven/FRONTEND/modules/ven-background-listening/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest13036430031847556103.xml:2:23-81
+		ADDED from /home/king/Ven/FRONTEND/modules/ven-background-listening/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest14705239805827742672.xml:2:23-81
 uses-sdk
-INJECTED from /home/king/Ven/FRONTEND/modules/ven-background-listening/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest13036430031847556103.xml reason: use-sdk injection requested
-INJECTED from /home/king/Ven/FRONTEND/modules/ven-background-listening/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest13036430031847556103.xml
-INJECTED from /home/king/Ven/FRONTEND/modules/ven-background-listening/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest13036430031847556103.xml
+INJECTED from /home/king/Ven/FRONTEND/modules/ven-background-listening/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest14705239805827742672.xml reason: use-sdk injection requested
+INJECTED from /home/king/Ven/FRONTEND/modules/ven-background-listening/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest14705239805827742672.xml
+INJECTED from /home/king/Ven/FRONTEND/modules/ven-background-listening/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest14705239805827742672.xml
 	android:targetSdkVersion
-		INJECTED from /home/king/Ven/FRONTEND/modules/ven-background-listening/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest13036430031847556103.xml
+		INJECTED from /home/king/Ven/FRONTEND/modules/ven-background-listening/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest14705239805827742672.xml
 	android:minSdkVersion
-		INJECTED from /home/king/Ven/FRONTEND/modules/ven-background-listening/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest13036430031847556103.xml
+		INJECTED from /home/king/Ven/FRONTEND/modules/ven-background-listening/android/build/intermediates/tmp/ProcessLibraryManifest/release/tempAndroidManifest14705239805827742672.xml

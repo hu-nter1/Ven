@@ -47,6 +47,14 @@ The repository includes [`render.yaml`](render.yaml), which configures a Python 
 
 To connect the app to the deployed service, set `EXPO_PUBLIC_API_URL` to the Render HTTPS base URL before starting Expo or building the app. For example, create `FRONTEND/.env.local` with `EXPO_PUBLIC_API_URL=https://<your-service>.onrender.com` and restart Expo. This overrides the local-network development URL.
 
+To build a standalone Android APK with EAS, the `preview` build profile in [`FRONTEND/eas.json`](FRONTEND/eas.json) sets `EXPO_PUBLIC_API_URL` to the deployed backend and configures an installable APK. From `FRONTEND/`, run:
+
+```bash
+npx eas-cli@latest build --platform android --profile preview
+```
+
+On the first build, EAS may ask you to sign in, link the project, and create Android signing credentials. Download the APK from the build page when it finishes.
+
 Render's default service filesystem is ephemeral. VEN's learned facts and web cache are file-backed, so they can be lost when the service restarts or redeploys unless you configure persistent storage.
 
 ### 2. Configure and start the app

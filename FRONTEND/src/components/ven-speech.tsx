@@ -14,6 +14,7 @@ import {
   type ScrollViewInstance,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import * as Speech from 'expo-speech';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -70,6 +71,7 @@ export function VenSpeech({
 }: {
   onListeningChange: (enabled: boolean) => void;
 }) {
+  const insets = useSafeAreaInsets();
   const [recognizing, setRecognizing] = useState(false);
   const [listeningEnabled, setListeningEnabled] = useState(false);
   const [message, setMessage] = useState('VEN is ready.');
@@ -425,7 +427,7 @@ export function VenSpeech({
     console.log('VEN microphone activated');
     setMessage(
       Platform.OS === 'android'
-        ? 'VEN is listening. Background notification is active.'
+        ? 'VEN is listening. speak now.'
         : 'VEN is listening...'
     );
   });
@@ -686,7 +688,13 @@ export function VenSpeech({
   return (
     <>
       <KeyboardAvoidingView
-        style={styles.container}
+        style={[
+          styles.container,
+          {
+            paddingTop: insets.top + 4,
+            paddingBottom: insets.bottom + 12,
+          },
+        ]}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
       {/* Compact VEN header */}
@@ -713,9 +721,6 @@ export function VenSpeech({
 
           <View style={styles.headerInfo}>
             <Text style={styles.headerName}>VEN</Text>
-            <Text style={styles.headerSubtitle}>
-              PERSONAL INTELLIGENCE
-            </Text>
           </View>
         </View>
         </View>
@@ -757,20 +762,6 @@ export function VenSpeech({
             <Text style={styles.welcomeTitle}>
               How can I help?
             </Text>
-
-            <Text style={styles.welcomeDescription}>
-              I'm VEN. Ask me anything, share an idea,
-              or let's explore something together.
-            </Text>
-
-            <View style={styles.suggestion}>
-              <Text style={styles.suggestionLabel}>
-                START A CONVERSATION
-              </Text>
-              <Text style={styles.suggestionText}>
-                Type a message below or speak to me.
-              </Text>
-            </View>
           </View>
         )}
 
@@ -855,28 +846,8 @@ export function VenSpeech({
             editable={!processing.current}
             returnKeyType="default"
           />
-
-          <Text style={styles.inputHint}>MESSAGE VEN</Text>
         </View>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Send message"
-          onPress={sendTypedMessage}
-          disabled={!draft.trim() || processing.current}
-          style={({ pressed }) => [
-            styles.sendButton,
-            (!draft.trim() || processing.current) &&
-              styles.sendButtonDisabled,
-            pressed && styles.buttonPressed,
-          ]}
-        >
-          <Text style={styles.sendIcon}>↑</Text>
-        </Pressable>
-      </View>
-
-      {/* Voice controls */}
-      <View style={styles.voiceArea}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={
@@ -900,11 +871,20 @@ export function VenSpeech({
           </Text>
         </Pressable>
 
-        <Text style={styles.micLabel}>
-          {listeningEnabled
-            ? 'VOICE LISTENING ACTIVE'
-            : 'TAP TO SPEAK TO VEN'}
-        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Send message"
+          onPress={sendTypedMessage}
+          disabled={!draft.trim() || processing.current}
+          style={({ pressed }) => [
+            styles.sendButton,
+            (!draft.trim() || processing.current) &&
+              styles.sendButtonDisabled,
+            pressed && styles.buttonPressed,
+          ]}
+        >
+          <Text style={styles.sendIcon}>↑</Text>
+        </Pressable>
       </View>
       </KeyboardAvoidingView>
 
@@ -1122,8 +1102,6 @@ const styles = StyleSheet.create({
     minHeight: 0,
     width: '100%',
     paddingHorizontal: 0,
-    paddingTop: 4,
-    paddingBottom: 4,
     backgroundColor: 'transparent',
   },
 
@@ -1132,7 +1110,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 14,
-    paddingVertical: 9,
+    paddingVertical: 6,
     backgroundColor: 'rgba(5, 20, 32, 0.94)',
     borderBottomWidth: 1,
     borderColor: 'rgba(0, 217, 255, 0.25)',
@@ -1146,8 +1124,8 @@ const styles = StyleSheet.create({
   },
 
   menuButton: {
-    width: 38,
-    height: 38,
+    width: 34,
+    height: 34,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1168,9 +1146,9 @@ const styles = StyleSheet.create({
   },
 
   avatarOuter: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -1179,9 +1157,9 @@ const styles = StyleSheet.create({
   },
 
   avatarInner: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     backgroundColor: '#073B4C',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1661,7 +1639,7 @@ const styles = StyleSheet.create({
   composer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 9,
+    gap: 7,
     padding: 9,
     marginHorizontal: 8,
     backgroundColor: 'rgba(5, 20, 32, 0.96)',
@@ -1716,19 +1694,10 @@ const styles = StyleSheet.create({
     marginTop: -3,
   },
 
-  voiceArea: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 9,
-    paddingBottom: 5,
-    gap: 12,
-  },
-
   micButton: {
-    width: 39,
-    height: 39,
-    borderRadius: 20,
+    width: 43,
+    height: 43,
+    borderRadius: 12,
     backgroundColor: '#073B4C',
     borderWidth: 1.5,
     borderColor: '#00D9FF',
@@ -1744,13 +1713,6 @@ const styles = StyleSheet.create({
   micIcon: {
     color: '#FFFFFF',
     fontSize: 18,
-  },
-
-  micLabel: {
-    color: '#A9C3D0',
-    fontSize: 9,
-    fontWeight: 'bold',
-    letterSpacing: 1.5,
   },
 
   buttonPressed: {
